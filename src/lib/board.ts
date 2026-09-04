@@ -472,6 +472,16 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
       detail: `Locker ${lockerOf(r.locker_id)} · ${crates} · ${farmerOf(r.farmer_id)}`,
       tone: "tone-booked",
     });
+    if (r.moved_at && r.moved_from_locker_id) {
+      events.push({
+        id: `${r.id}-moved`,
+        at: r.moved_at,
+        title: "Reservation moved",
+        detail: `${lockerOf(r.moved_from_locker_id)} → ${lockerOf(r.locker_id)} · ${crates}`,
+        tone: "tone-booked",
+      });
+    }
+
     if (r.checked_in_at) {
       events.push({
         id: `${r.id}-checkin`,
