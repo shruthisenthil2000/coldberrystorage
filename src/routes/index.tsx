@@ -1296,8 +1296,9 @@ function Board() {
           ) : (
             <p className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <span className="size-2 rounded-full tone-free" aria-hidden="true" />
-              {isFetching ? "Syncing…" : `Synced ${clockTime(data.syncedAt)}`}
+              {isFetching ? "Syncing…" : `Live · synced ${agoLabel(data.syncedAt, now)}`}
             </p>
+
           )
         )}
 
