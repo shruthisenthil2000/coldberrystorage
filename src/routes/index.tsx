@@ -25,12 +25,18 @@ import {
   INCIDENT_LABEL,
   openIncidents,
   reportIncident,
+  ACTIVE_RESERVATION_STATUSES,
+  buildActivity,
+  displayStatus,
+  displayTone,
+  formatCountdown,
+  DISPLAY_STATUS_LABEL,
+  type DisplayStatus,
   type IncidentType,
   type BoardData,
   type HarvestSlot,
   type Locker,
   type Reservation,
-
 } from "@/lib/board";
 import {
   Sheet,
@@ -108,6 +114,8 @@ function CapacityBar({ used, capacity }: { used: number; capacity: number }) {
 }
 
 const LAST_RESERVATION_KEY = "coldstore:last-reservation";
+/** Fired whenever the saved booking changes, so Home can pick it up instantly. */
+const LAST_RESERVATION_EVENT = "coldstore:last-reservation-changed";
 
 function ReserveSheet({
   locker,
@@ -199,6 +207,7 @@ function ReserveSheet({
 
     try {
       localStorage.setItem(LAST_RESERVATION_KEY, created.id);
+      window.dispatchEvent(new Event(LAST_RESERVATION_EVENT));
     } catch {
       /* storage unavailable — confirmation still shows now */
     }
@@ -256,14 +265,7 @@ function ReserveSheet({
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-4 px-4 pb-6">
-          <div className="panel p-4">
-            <p className="stat-label">Check in by</p>
-            <p className="text-3xl font-semibold tabular-nums">{clockTime(done.check_in_deadline)}</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              If you do not check in within {CHECK_IN_WINDOW_MINUTES} minutes, this reservation will
-              automatically be released.
-            </p>
-          </div>
+          <Countdown deadline={done.check_in_deadline} />
           <div className="grid grid-cols-2 gap-2">
             <div className="panel p-3">
               <p className="stat-label">Drop-off code</p>
@@ -1095,9 +1097,14 @@ function LockerCard({
             View reservation
           </Button>
         ) : down ? (
-          <p className="panel-flat flex h-12 items-center justify-center text-sm font-medium text-muted-foreground shadow-none">
-            Not available
-          </p>
+          <div className="panel-flat p-3 text-sm shadow-none">
+            <p className="font-semibold">Out of service</p>
+            <p className="meta-text mt-0.5">
+              {incidents[0]
+                ? `${INCIDENT_LABEL[incidents[0].type]} reported — reservations unavailable.`
+                : "Reservations unavailable until this locker is checked."}
+            </p>
+          </div>
         ) : (
           <>
             {open && (
@@ -1173,6 +1180,7 @@ function Board() {
   // When the connection comes back, pull authoritative locker/reservation state.
   useEffect(() => {
     function onBackOnline() {
+      toast.success("Back online — syncing latest locker information…");
       queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
     }
     window.addEventListener("online", onBackOnline);
@@ -1187,11 +1195,6 @@ function Board() {
     day: "numeric",
   });
 
-  const active = data
-    ? data.reservations.filter(
-        (r) => r.status === "RESERVED" || r.status === "CHECKED_IN" || r.status === "STORED",
-      )
-    : [];
 
   return (
     <PhoneShell online={online}>
@@ -1314,63 +1317,10 @@ function Board() {
           </>
         )}
 
-        {data && tab === "bookings" && (
-          <>
-            <h2 className="section-heading">Your bookings</h2>
-            <LastReservationCard data={data} />
-            <ul className="mt-3 grid gap-2">
-              {active.length === 0 && (
-                <li className="panel-flat p-4 text-sm text-muted-foreground">
-                  No active bookings right now. Reserve a locker from Home.
-                </li>
-              )}
-              {active.map((r: Reservation) => {
-                const locker = data.lockers.find((l) => l.id === r.locker_id);
-                const farmer = data.farmers.find((f) => f.id === r.farmer_id);
-                return (
-                  <li key={r.id} className="panel flex items-center justify-between gap-3 p-4">
-                    <div className="min-w-0">
-                      <p className="card-title truncate">Locker {locker?.locker_number}</p>
-                      <p className="meta-text truncate">
-                        {farmer?.name} · {r.crate_count} crate{r.crate_count === 1 ? "" : "s"} ·{" "}
-                        {shortTime(r.reserved_at)}
-                      </p>
-                    </div>
-                    <Chip tone={reservationTone(r.status)}>{RESERVATION_LABEL[r.status]}</Chip>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="meta-text mt-3">
-              Open a locker on Home to confirm a drop-off or verify a pickup.
-            </p>
-          </>
-        )}
+        {data && tab === "bookings" && <BookingsTab data={data} />}
 
-        {data && tab === "activity" && (
-          <>
-            <h2 className="section-heading">Recent activity</h2>
-            <ul className="mt-3 grid gap-2">
-              {data.reservations.slice(0, 12).map((r: Reservation) => {
-                const farmer = data.farmers.find((f) => f.id === r.farmer_id);
-                const locker = data.lockers.find((l) => l.id === r.locker_id);
-                return (
-                  <li key={r.id} className="panel flex items-center justify-between gap-3 p-3.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-[15px] font-medium">
-                        Locker {locker?.locker_number} · {farmer?.name}
-                      </p>
-                      <p className="meta-text truncate">
-                        {r.crate_count} crates · {shortTime(r.reserved_at)}
-                      </p>
-                    </div>
-                    <Chip tone={reservationTone(r.status)}>{RESERVATION_LABEL[r.status]}</Chip>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
-        )}
+        {data && tab === "activity" && <ActivityTab data={data} />}
+
       </div>
 
       <nav className="shrink-0 border-t border-border bg-card px-2 pt-1.5 pb-2">
@@ -1419,36 +1369,204 @@ function Board() {
 }
 
 
+/** Re-render every second so countdowns stay live. */
+function useNow(intervalMs = 1000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+/**
+ * One reservation, with the actions that are legal in its current state.
+ * Used by the Bookings tab and by the active-reservation card on Home.
+ */
+function BookingCard({
+  reservation,
+  data,
+  compact = false,
+}: {
+  reservation: Reservation;
+  data: BoardData;
+  compact?: boolean;
+}) {
+  const now = useNow();
+  const queryClient = useQueryClient();
+  const [sheet, setSheet] = useState<"dropoff" | "pickup" | null>(null);
+  const locker = data.lockers.find((l) => l.id === reservation.locker_id);
+  const farmer = data.farmers.find((f) => f.id === reservation.farmer_id);
+  const status = displayStatus(reservation, now);
+  const remaining =
+    reservation.status === "RESERVED" ? formatCountdown(reservation.check_in_deadline, now) : null;
+  const lockerDown = locker?.status === "BREAKDOWN" || locker?.status === "MAINTENANCE";
+  const incidents = locker ? openIncidents(locker.id, data.incidents) : [];
+
+  // Deadline just passed while the card was on screen: free the crates.
+  useEffect(() => {
+    if (reservation.status !== "RESERVED") return;
+    if (Date.now() <= new Date(reservation.check_in_deadline).getTime()) return;
+    void expireOverdueReservations().then(() =>
+      queryClient.invalidateQueries({ queryKey: boardQuery.queryKey }),
+    );
+  }, [reservation.status, reservation.check_in_deadline, now, queryClient, reservation.id]);
+
+  return (
+    <article
+      className={`panel min-w-0 overflow-hidden p-4 pl-5 ${displayTone(status).replace("tone-", "edge-")} ${
+        compact ? "border-primary/60" : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          {compact && <p className="stat-label">Your active reservation</p>}
+          <h3 className="card-title truncate">🫐 Locker {locker?.locker_number ?? "—"}</h3>
+          <p className="meta-text truncate">
+            {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
+            {SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot}
+            {farmer ? ` · ${farmer.farm_name}` : ""}
+          </p>
+        </div>
+        <Chip tone={displayTone(status)}>{DISPLAY_STATUS_LABEL[status]}</Chip>
+      </div>
+
+      {reservation.status === "RESERVED" && remaining && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="panel-flat p-3">
+            <p className="stat-label">Check in by</p>
+            <p className="text-xl font-semibold tabular-nums">
+              {clockTime(reservation.check_in_deadline)}
+            </p>
+            <p className="meta-text tabular-nums">{remaining} remaining</p>
+          </div>
+          <div className="panel-flat p-3">
+            <p className="stat-label">Verification code</p>
+            <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
+              {reservation.dropoff_code}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {(reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="panel-flat p-3">
+            <p className="stat-label">Dropped off</p>
+            <p className="text-base font-semibold">{shortTime(reservation.checked_in_at)}</p>
+          </div>
+          <div className="panel-flat p-3">
+            <p className="stat-label">Pickup code</p>
+            <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
+              {reservation.pickup_code}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {status === "COMPLETED" && (
+        <p className="meta-text mt-2">
+          Picked up {shortTime(reservation.picked_up_at)} · {reservation.crate_count} crate
+          {reservation.crate_count === 1 ? "" : "s"} released.
+        </p>
+      )}
+      {status === "EXPIRED" && (
+        <p className="mt-2 text-sm">
+          Not checked in within {CHECK_IN_WINDOW_MINUTES} minutes. {reservation.crate_count} crate
+          {reservation.crate_count === 1 ? "" : "s"} released back to community storage.
+        </p>
+      )}
+      {status === "CANCELLED" && (
+        <p className="meta-text mt-2">Cancelled {shortTime(reservation.cancelled_at)}.</p>
+      )}
+
+      {lockerDown && ACTIVE_RESERVATION_STATUSES.includes(reservation.status) && (
+        <p className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
+          ⚠ Locker {locker?.locker_number} is out of service
+          {incidents[0] ? ` — ${INCIDENT_LABEL[incidents[0].type]}` : ""}. Your crates are safe and
+          this booking is kept. Reserve another locker on Home if you need to move them.
+        </p>
+      )}
+
+      {locker && reservation.status === "RESERVED" && (
+        <Button
+          type="button"
+          className="pressable btn-gradient mt-3 h-12 w-full rounded-xl text-[15px] font-semibold"
+          onClick={() => setSheet("dropoff")}
+        >
+          Check in / Drop off
+        </Button>
+      )}
+      {locker && (reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
+        <Button
+          type="button"
+          className="pressable mt-3 h-12 w-full rounded-xl text-[15px] font-semibold"
+          onClick={() => setSheet("pickup")}
+        >
+          Pick up crates
+        </Button>
+      )}
+
+      {locker && (
+        <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
+          {sheet === "dropoff" ? (
+            <DropOffContent
+              locker={locker}
+              reservation={reservation}
+              data={data}
+              onBack={() => setSheet(null)}
+              onClose={() => setSheet(null)}
+            />
+          ) : sheet === "pickup" ? (
+            <PickupContent
+              locker={locker}
+              reservation={reservation}
+              onBack={() => setSheet(null)}
+              onClose={() => setSheet(null)}
+            />
+          ) : null}
+        </Sheet>
+      )}
+    </article>
+  );
+}
+
+/** The farmer's own most recent reservation, shown at the top of Home. */
 function LastReservationCard({ data }: { data: BoardData }) {
   const [id, setId] = useState<string | null>(null);
   useEffect(() => {
-    try {
-      setId(localStorage.getItem(LAST_RESERVATION_KEY));
-    } catch {
-      setId(null);
+    function read() {
+      try {
+        setId(localStorage.getItem(LAST_RESERVATION_KEY));
+      } catch {
+        setId(null);
+      }
     }
+    read();
+    window.addEventListener(LAST_RESERVATION_EVENT, read);
+    window.addEventListener("storage", read);
+    return () => {
+      window.removeEventListener(LAST_RESERVATION_EVENT, read);
+      window.removeEventListener("storage", read);
+    };
   }, []);
 
   const reservation = id ? data.reservations.find((r) => r.id === id) : undefined;
   if (!reservation) return null;
+  if (reservation.status === "PICKED_UP") return null;
+
   const locker = data.lockers.find((l) => l.id === reservation.locker_id);
 
   // Expired before check-in: the lazy expiration released the crates.
-  if (
-    reservation.status === "CANCELLED" &&
-    !reservation.checked_in_at &&
-    Date.now() > new Date(reservation.check_in_deadline).getTime()
-  ) {
+  if (reservation.status === "CANCELLED" && !reservation.checked_in_at) {
     return (
-      <section
-        className="panel border-destructive/50 p-4"
-        aria-label="Reservation expired"
-      >
+      <section className="panel border-destructive/50 p-4" aria-label="Reservation expired">
         <p className="stat-label">Reservation expired</p>
         <p className="card-title mt-0.5">Locker {locker?.locker_number ?? "—"}</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          Locker {locker?.locker_number ?? "—"} was released because the crates were not checked in
-          within {CHECK_IN_WINDOW_MINUTES} minutes.
+          {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} released back to
+          community storage because they were not checked in within {CHECK_IN_WINDOW_MINUTES}{" "}
+          minutes.
         </p>
         <Button
           type="button"
@@ -1456,6 +1574,7 @@ function LastReservationCard({ data }: { data: BoardData }) {
           onClick={() => {
             try {
               localStorage.removeItem(LAST_RESERVATION_KEY);
+              window.dispatchEvent(new Event(LAST_RESERVATION_EVENT));
             } catch {
               /* ignore */
             }
@@ -1468,38 +1587,88 @@ function LastReservationCard({ data }: { data: BoardData }) {
     );
   }
 
-  if (reservation.status !== "RESERVED") return null;
+  return <BookingCard reservation={reservation} data={data} compact />;
+}
+
+
+
+const BOOKING_GROUPS: { key: DisplayStatus[]; title: string }[] = [
+  { key: ["CHECK_IN_REQUIRED", "RESERVED"], title: "Awaiting drop-off" },
+  { key: ["IN_STORAGE"], title: "In storage" },
+  { key: ["COMPLETED"], title: "Completed" },
+  { key: ["EXPIRED", "CANCELLED"], title: "Expired & cancelled" },
+];
+
+function BookingsTab({ data }: { data: BoardData }) {
+  const now = useNow(5000);
+  const sorted = [...data.reservations].sort(
+    (a, b) => new Date(b.reserved_at).getTime() - new Date(a.reserved_at).getTime(),
+  );
 
   return (
-    <section className="panel border-primary/60 p-4" aria-label="Your reservation">
-      <div className="flex items-center justify-between gap-3">
-        <p className="stat-label">Your reservation</p>
-        <Chip tone="tone-booked">Reserved</Chip>
-      </div>
-      <p className="card-title mt-1">
-        Locker {locker?.locker_number ?? "—"} ·{" "}
-        {SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot} ·{" "}
-        {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"}
-      </p>
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <div className="panel-flat p-3">
-          <p className="stat-label">Check in by</p>
-          <p className="text-xl font-semibold tabular-nums">
-            {clockTime(reservation.check_in_deadline)}
-          </p>
-        </div>
-        <div className="panel-flat p-3">
-          <p className="stat-label">Drop-off code</p>
-          <p className="text-xl font-semibold tracking-[0.2em] tabular-nums">
-            {reservation.dropoff_code}
-          </p>
-        </div>
-      </div>
-      <p className="meta-text mt-2">
-        If you do not check in within {CHECK_IN_WINDOW_MINUTES} minutes, this reservation will
-        automatically be released.
-      </p>
-    </section>
+    <>
+      <h2 className="section-heading">Your bookings</h2>
+      {sorted.length === 0 && (
+        <p className="panel-flat mt-3 p-4 text-sm text-muted-foreground">
+          No bookings yet. Reserve a locker from Home.
+        </p>
+      )}
+      {BOOKING_GROUPS.map((group) => {
+        const items = sorted.filter((r) => group.key.includes(displayStatus(r, now)));
+        if (items.length === 0) return null;
+        return (
+          <section key={group.title} className="mt-4">
+            <p className="stat-label mb-2">
+              {group.title} · {items.length}
+            </p>
+            <div className="grid gap-3">
+              {items.map((r) => (
+                <BookingCard key={r.id} reservation={r} data={data} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </>
   );
 }
 
+function ActivityTab({ data }: { data: BoardData }) {
+  const events = buildActivity(data).slice(0, 40);
+  return (
+    <>
+      <h2 className="section-heading">Recent activity</h2>
+      {events.length === 0 && (
+        <p className="panel-flat mt-3 p-4 text-sm text-muted-foreground">Nothing has happened yet.</p>
+      )}
+      <ul className="mt-3 grid gap-2">
+        {events.map((e) => (
+          <li key={e.id} className={`panel p-3.5 pl-4 ${e.tone.replace("tone-", "edge-")}`}>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[15px] font-semibold">{e.title}</p>
+              <span className="meta-text shrink-0 tabular-nums">{shortTime(e.at)}</span>
+            </div>
+            <p className="meta-text mt-0.5">{e.detail}</p>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+/** Live "check in within 45 minutes" panel used on the confirmation screen. */
+function Countdown({ deadline }: { deadline: string }) {
+  const now = useNow();
+  const remaining = formatCountdown(deadline, now);
+  return (
+    <div className="panel p-4">
+      <p className="stat-label">Check-in deadline</p>
+      <p className="text-3xl font-semibold tabular-nums">{remaining ?? "00:00"}</p>
+      <p className="mt-1 text-sm font-medium">remaining · check in by {clockTime(deadline)}</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        If you do not check in within {CHECK_IN_WINDOW_MINUTES} minutes, this reservation is released
+        back to community storage.
+      </p>
+    </div>
+  );
+}
