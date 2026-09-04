@@ -172,3 +172,39 @@ The backend (Postgres, policies, triggers, seed data) is provisioned by Lovable
 Cloud; environment values are supplied automatically. Demo data covers available,
 booked, in-storage and out-of-service lockers plus active, completed, expired and
 cancelled reservations.
+
+## 13. Live demo
+
+- Preview: _deployment URL to be added after publishing_
+
+## 14. Tech stack
+
+TanStack Start (React 19, Vite 7), Tailwind CSS v4 + shadcn/ui, TanStack Query,
+Postgres via Lovable Cloud (RLS, triggers, row-level locking).
+
+## 15. Honest limitations
+
+- **New reservations are blocked while offline** because cached availability
+  cannot safely guarantee against double-booking. Only incident reports — which
+  are additive and conflict-free — are queued locally.
+- **Reservation expiry is lazy**, implemented on reads and actions rather than a
+  paid background scheduler. State is correct whenever anyone loads the board,
+  opens a booking, or attempts a reservation or check-in.
+- **Automatic crate relocation during a locker breakdown is deliberately not
+  implemented.** Existing stored crates stay associated with the affected locker;
+  only reservations still awaiting drop-off can be moved, by the farmer.
+
+## 16. QA checklist
+
+| # | Flow | Expected |
+| --- | --- | --- |
+| A | Reserve → drop-off code → pickup code | RESERVED → CHECKED_IN → PICKED_UP, capacity released |
+| B | No-show (use the dev-only "simulate check-in window expiring" control) | RESERVED → CANCELLED, crates released, check-in rejected |
+| C | Two simultaneous reservations for the last crates | one succeeds, one fails with `CAPACITY:<n>`; capacity never negative |
+| D | Double-tap Reserve | button disables; exactly one reservation |
+| E/F | Wrong drop-off / pickup code | rejected, no state change |
+| G/H | Check in or pick up twice | second attempt rejected (conditional update matches no row) |
+| I | Report cooling failure | locker out of service, new reservations blocked, stored crates untouched |
+| J | Go offline → reconnect | cached board with "last synced" label, reservation blocked, then "Back online · Synced" |
+| K | Reserve → refresh page | reservation still present (state lives in Postgres) |
+| L | Reserve / expire / pick up | capacity decreases and increases accordingly |

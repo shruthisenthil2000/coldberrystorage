@@ -37,6 +37,8 @@ import {
   readIncidentQueue,
   QUEUE_EVENT,
   isStale,
+  isOffline,
+
   lockerSizeLabel,
   ACTIVE_RESERVATION_STATUSES,
   buildActivity,
@@ -173,11 +175,18 @@ function ReserveSheet({
 
   async function reserve() {
     if (!farmerId || crates <= 0 || saving) return;
+    // Never confirm a booking the server hasn't accepted.
+    if (isOffline()) {
+      toast.error("You're offline. New reservations need a connection to prevent double-booking.");
+      return;
+    }
     setSaving(true);
     setShortfall(null);
 
+    try {
     // Free any expired reservations first so capacity reflects reality.
     await expireOverdueReservations();
+
     const [{ data: freshLocker }, { data: freshRes }] = await Promise.all([
       supabase.from("lockers").select("*").eq("id", locker.id).maybeSingle(),
       supabase.from("reservations").select("*").eq("locker_id", locker.id),
@@ -244,7 +253,17 @@ function ReserveSheet({
     );
 
     await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+    } catch (e) {
+      // Network/server failure: nothing was confirmed, so never show success.
+      setSaving(false);
+      toast.error(
+        e instanceof Error && e.message
+          ? `Couldn't complete this action (${e.message}). Your data was not changed — try again.`
+          : "Couldn't complete this action. Your data was not changed — try again.",
+      );
+    }
   }
+
 
   if (shortfall !== null) {
     return (
@@ -1745,6 +1764,31 @@ function BookingCard({
           </div>
         </>
       )}
+
+      {/* Development-only: demonstrate the real 45-minute rule without waiting.
+          It only moves this booking's deadline into the past; the production
+          rule (reserved_at + 45 min) and the expiry logic are unchanged. */}
+      {import.meta.env.DEV && reservation.status === "RESERVED" && (
+        <Button
+          type="button"
+          variant="ghost"
+          className="pressable mt-2 h-9 w-full rounded-lg text-xs text-muted-foreground"
+          onClick={async () => {
+            await supabase
+              .from("reservations")
+              .update({ check_in_deadline: new Date(Date.now() - 60_000).toISOString() })
+              .eq("id", reservation.id)
+              .eq("status", "RESERVED");
+            await expireOverdueReservations();
+            await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+            toast.message("Demo: check-in window expired — crates released.");
+          }}
+        >
+          Demo only · simulate check-in window expiring
+        </Button>
+      )}
+
+
 
 
       {(reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
