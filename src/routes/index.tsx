@@ -1102,7 +1102,7 @@ function LockerCard({
           <>
             {open && (
               <Button
-                className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
+                className="pressable btn-gradient h-12 w-full rounded-xl text-[15px] font-semibold"
                 onClick={() => setSheet("reserve")}
               >
                 Reserve
@@ -1379,7 +1379,7 @@ function Board() {
                 aria-current={tab === key ? "page" : undefined}
                 onClick={() => setTab(key)}
                 className={`pressable flex h-14 w-full flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold ${
-                  tab === key ? "text-primary" : "text-muted-foreground"
+                  tab === key ? "bg-accent text-primary" : "text-muted-foreground"
                 }`}
               >
                 <Icon className="size-5" />
