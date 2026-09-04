@@ -21,10 +21,16 @@ import {
   tempState,
   expireOverdueReservations,
   tempTone,
+  INCIDENT_OPTIONS,
+  INCIDENT_LABEL,
+  openIncidents,
+  reportIncident,
+  type IncidentType,
   type BoardData,
   type HarvestSlot,
   type Locker,
   type Reservation,
+
 } from "@/lib/board";
 import {
   Sheet,
