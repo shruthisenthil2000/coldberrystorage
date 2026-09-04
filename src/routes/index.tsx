@@ -1111,7 +1111,10 @@ function LockerCard({
           <h3 className="card-title truncate">Locker {locker.locker_number}</h3>
           <p className="meta-text mt-0.5 truncate">{locker.zone}</p>
         </div>
-        <Chip tone={statusTone(locker.status)}>{LOCKER_LABEL[locker.status]}</Chip>
+        <Chip tone={statusTone(locker.status)}>
+          {availabilityLabel(locker, data.reservations, slot)}
+        </Chip>
+
       </div>
 
       {down ? (
