@@ -1131,15 +1131,6 @@ function LockerCard({
                 Reserve
               </Button>
             )}
-            {used > 0 && (
-              <Button
-                variant="outline"
-                className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
-                onClick={() => setSheet("view")}
-              >
-                {locker.status === "IN_STORAGE" ? "View storage" : "View reservation"}
-              </Button>
-            )}
             {!open && used === 0 && (
               <p className="panel-flat flex h-12 items-center justify-center text-sm font-medium text-muted-foreground shadow-none">
                 Full
@@ -1148,14 +1139,25 @@ function LockerCard({
           </>
         )}
 
-        <Button
-          type="button"
-          variant="ghost"
-          className="pressable h-11 w-full rounded-xl text-sm font-medium text-muted-foreground"
-          onClick={() => setSheet("report")}
-        >
-          Report issue
-        </Button>
+        <div className={`grid gap-2 ${!down && used > 0 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {!down && used > 0 && (
+            <Button
+              variant="outline"
+              className="pressable h-11 w-full rounded-xl text-sm font-semibold"
+              onClick={() => setSheet("view")}
+            >
+              {locker.status === "IN_STORAGE" ? "View storage" : "View booking"}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            className="pressable h-11 w-full rounded-xl text-sm font-medium text-muted-foreground"
+            onClick={() => setSheet("report")}
+          >
+            Report issue
+          </Button>
+        </div>
       </div>
 
       <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
