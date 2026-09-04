@@ -1510,7 +1510,7 @@ function BookingCard({
               </p>
               <p
                 className={`text-sm font-semibold tabular-nums ${
-                  urgent ? "text-destructive" : "text-muted-foreground"
+                  urgent ? "text-destructive" : "text-booked"
                 }`}
               >
                 {remaining} remaining
@@ -1518,13 +1518,14 @@ function BookingCard({
             </div>
             <div className="panel-flat p-3">
               <p className="stat-label">Verification code</p>
-              <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
+              <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums text-stored">
                 {reservation.dropoff_code}
               </p>
             </div>
           </div>
         </>
       )}
+
 
       {(reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
         <div className="mt-3 grid grid-cols-2 gap-2">
