@@ -344,16 +344,23 @@ function ReserveSheet({
                 key={s}
                 type="button"
                 aria-pressed={pickedSlot === s}
-                onClick={() => setPickedSlot(s)}
-                className={`panel pressable min-h-[52px] rounded-xl text-[15px] font-semibold ${
+                onClick={() => {
+                  setPickedSlot(s);
+                  setLiveFreeCrates(null);
+                }}
+                className={`panel pressable min-h-[52px] rounded-xl text-[13px] font-semibold leading-tight ${
                   pickedSlot === s ? "ring-2 ring-primary bg-primary text-primary-foreground" : ""
                 }`}
               >
-                {SLOT_LABEL[s]}
+                <span className="block">{SLOT_LABEL[s]}</span>
+                <span className="block text-[11px] font-medium opacity-80">
+                  {freeCrates(locker, data.reservations, s)} crates free
+                </span>
               </button>
             ))}
           </div>
         </div>
+
 
         <div>
           <p className="stat-label mb-2">Crates</p>
