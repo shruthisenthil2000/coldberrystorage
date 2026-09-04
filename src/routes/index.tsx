@@ -1432,7 +1432,12 @@ function BookingCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {compact && <p className="stat-label">Your active reservation</p>}
+          {compact && (
+            <p className="stat-label">
+              Your {(SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot).toLowerCase()}{" "}
+              reservation
+            </p>
+          )}
           <h3 className="card-title truncate">🫐 Locker {locker?.locker_number ?? "—"}</h3>
           <p className="meta-text truncate">
             {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
