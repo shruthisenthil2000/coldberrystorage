@@ -310,9 +310,10 @@ function ReserveSheet({
       <SheetHeader>
         <SheetTitle className="text-xl font-semibold">Locker {locker.locker_number}</SheetTitle>
         <SheetDescription>
-          {free} / {locker.capacity} crates available · {Number(locker.temperature).toFixed(1)} °C ·{" "}
-          {tState}
+          {free} of {locker.capacity} crates free in {SLOT_LABEL[pickedSlot].toLowerCase()} ·{" "}
+          {Number(locker.temperature).toFixed(1)} °C · {tState}
         </SheetDescription>
+
       </SheetHeader>
 
       <div className="space-y-5 px-4 pb-6">
