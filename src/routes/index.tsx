@@ -1217,7 +1217,7 @@ function Board() {
 
   return (
     <PhoneShell online={online}>
-      <header className="header-hero shrink-0 border-b border-border px-4 pt-3 pb-4">
+      <header className="header-hero shrink-0 border-b border-border px-4 pt-5 pb-4">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
             <h1 className="screen-title flex items-center gap-1.5 truncate">
@@ -1280,7 +1280,7 @@ function Board() {
           <>
             <LastReservationCard data={data} />
 
-            <section className="mt-4 grid grid-cols-2 gap-2" aria-label="Locker summary">
+            <section className="mt-5 grid grid-cols-2 gap-3" aria-label="Locker summary">
               {(
                 [
                   ["Available", data.lockers.filter((l) => l.status === "AVAILABLE").length, "tone-free"],
@@ -1310,7 +1310,7 @@ function Board() {
 
             <section className="mt-5" aria-label="Harvest slot">
               <p className="stat-label mb-2">Harvest slot</p>
-              <div className="grid grid-cols-2 gap-2" role="group">
+              <div className="grid grid-cols-2 gap-3" role="group">
                 {(["MORNING", "AFTERNOON"] as const).map((s) => {
                   const Icon = s === "MORNING" ? Sunrise : Sunset;
                   const active = slot === s;
