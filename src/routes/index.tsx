@@ -1372,12 +1372,45 @@ function Board() {
               </div>
             </section>
 
+            {(() => {
+              const s = slotSummary(data, slot);
+              return (
+                <section
+                  className="panel mt-5 flex items-center justify-between gap-3 p-3.5"
+                  aria-label="Capacity for the selected slot"
+                >
+                  <div className="min-w-0">
+                    <p className="stat-label">{SLOT_LABEL[slot]} capacity</p>
+                    <p className="mt-0.5 text-lg leading-tight font-semibold tabular-nums">
+                      {s.cratesFree} crates free
+                    </p>
+                    <p className="meta-text">
+                      {s.lockersFree} locker{s.lockersFree === 1 ? "" : "s"} with room
+                      {s.outOfService > 0 ? ` · ${s.outOfService} out of service` : ""}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                      s.cratesFree > 0 ? "tone-free" : "tone-down"
+                    }`}
+                  >
+                    {s.cratesFree > 0 ? "Space available" : "Full"}
+                  </span>
+                </section>
+              );
+            })()}
+
             <section className="mt-5 grid gap-3">
               <h2 className="section-heading">Lockers</h2>
               {data.lockers.map((locker) => (
                 <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
               ))}
+              <p className="meta-text mt-1 px-0.5">
+                Fair allocation: first come, first served. Reservations that are not checked in
+                within {CHECK_IN_WINDOW_MINUTES} minutes are released back to the community.
+              </p>
             </section>
+
           </>
         )}
 
