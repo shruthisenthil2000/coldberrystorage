@@ -134,15 +134,22 @@ function ReserveSheet({
 }) {
   const queryClient = useQueryClient();
   const [liveFreeCrates, setLiveFreeCrates] = useState<number | null>(null);
-  const free = liveFreeCrates ?? freeCrates(locker, data.reservations);
   const [farmerId, setFarmerId] = useState(data.farmers[0]?.id ?? "");
   const [pickedSlot, setPickedSlot] = useState<HarvestSlot>(slot);
-  const [crates, setCrates] = useState(Math.min(1, freeCrates(locker, data.reservations)));
+  // Capacity is per harvest slot, so the numbers follow the chosen slot.
+  const free = liveFreeCrates ?? freeCrates(locker, data.reservations, pickedSlot);
+  const [crates, setCrates] = useState(1);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<Reservation | null>(null);
   const [showBooking, setShowBooking] = useState(false);
   const [shortfall, setShortfall] = useState<number | null>(null);
   const tState = tempState(Number(locker.temperature));
+
+  // Never let the crate count exceed what the chosen slot still has free.
+  useEffect(() => {
+    setCrates((c) => Math.max(1, Math.min(c, Math.max(1, free))));
+  }, [free]);
+
 
   // The database is the authority on capacity: it re-checks under a row lock and
   // reports the real number of free crates as "CAPACITY:<n>".
