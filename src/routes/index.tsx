@@ -8,7 +8,12 @@ import {
   boardQuery,
   freeCrates,
   isReservable,
+  isOutOfService,
+  slotSummary,
+  agoLabel,
+  moveReservation,
   usedCrates,
+
   LOCKER_LABEL,
   SLOT_LABEL,
   shortTime,
