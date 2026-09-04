@@ -308,7 +308,7 @@
 
   /* Gradient primary action */
   .btn-gradient {
-    background: linear-gradient(135deg, var(--primary), var(--stored));
+    background: linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 70%, oklch(0.72 0.16 60)));
     color: var(--primary-foreground);
   }
 
@@ -342,10 +342,10 @@
       display: grid;
       place-items: center;
       padding: 24px;
-      background: radial-gradient(circle at 50% 0%, oklch(0.93 0.01 250), oklch(0.88 0.01 250) 70%);
+      background: radial-gradient(circle at 50% 0%, oklch(0.96 0.02 88), oklch(0.9 0.012 90) 70%);
     }
     .dark .phone-stage {
-      background: radial-gradient(circle at 50% 0%, oklch(0.26 0.02 260), oklch(0.16 0.01 260) 70%);
+      background: radial-gradient(circle at 50% 0%, oklch(0.26 0.02 80), oklch(0.15 0.006 260) 70%);
     }
     .phone-frame {
       /* iPhone 15 Plus class: 430px logical width */
