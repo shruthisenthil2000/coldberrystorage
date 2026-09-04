@@ -119,21 +119,30 @@ function ReserveSheet({
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
-  const free = freeCrates(locker, data.reservations);
+  const [liveFreeCrates, setLiveFreeCrates] = useState<number | null>(null);
+  const free = liveFreeCrates ?? freeCrates(locker, data.reservations);
   const [farmerId, setFarmerId] = useState(data.farmers[0]?.id ?? "");
   const [pickedSlot, setPickedSlot] = useState<HarvestSlot>(slot);
-  const [crates, setCrates] = useState(Math.min(1, free));
+  const [crates, setCrates] = useState(Math.min(1, freeCrates(locker, data.reservations)));
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<Reservation | null>(null);
   const [showBooking, setShowBooking] = useState(false);
+  const [shortfall, setShortfall] = useState<number | null>(null);
   const tState = tempState(Number(locker.temperature));
 
-  async function reserve() {
-    if (!farmerId || crates <= 0 || crates > free) return;
-    setSaving(true);
+  // The database is the authority on capacity: it re-checks under a row lock and
+  // reports the real number of free crates as "CAPACITY:<n>".
+  function capacityFromError(message?: string): number | null {
+    const match = /CAPACITY:(\d+)/.exec(message ?? "");
+    return match?.[1] ? Number(match[1]) : null;
+  }
 
-    // Free any expired reservations first so capacity reflects reality,
-    // then re-check live capacity: someone else may have taken the space meanwhile.
+  async function reserve() {
+    if (!farmerId || crates <= 0 || saving) return;
+    setSaving(true);
+    setShortfall(null);
+
+    // Free any expired reservations first so capacity reflects reality.
     await expireOverdueReservations();
     const [{ data: freshLocker }, { data: freshRes }] = await Promise.all([
       supabase.from("lockers").select("*").eq("id", locker.id).maybeSingle(),
@@ -143,16 +152,20 @@ function ReserveSheet({
     const stillOpen =
       freshLocker && freshLocker.status !== "MAINTENANCE" && freshLocker.status !== "BREAKDOWN";
     const liveFree = freshLocker ? freeCrates(freshLocker, freshRes ?? []) : 0;
+    setLiveFreeCrates(liveFree);
 
-    if (!stillOpen || crates > liveFree) {
+    if (!stillOpen) {
       setSaving(false);
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
-      toast.error(
-        !stillOpen
-          ? `Locker ${locker.locker_number} is no longer available.`
-          : `Locker ${locker.locker_number} only has ${liveFree} crate${liveFree === 1 ? "" : "s"} left. Capacity refreshed.`,
-      );
+      toast.error(`Locker ${locker.locker_number} is no longer available.`);
       onClose();
+      return;
+    }
+
+    if (crates > liveFree) {
+      setSaving(false);
+      setShortfall(liveFree);
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
       return;
     }
 
@@ -171,6 +184,13 @@ function ReserveSheet({
     setSaving(false);
     if (error || !created) {
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      const left = capacityFromError(error?.message);
+      if (left !== null) {
+        // Lost a race with another farmer — the database refused the booking.
+        setLiveFreeCrates(left);
+        setShortfall(left);
+        return;
+      }
       toast.error(error?.message ?? "The reservation could not be made.");
       return;
     }
@@ -183,6 +203,42 @@ function ReserveSheet({
     setDone(created);
     await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
   }
+
+  if (shortfall !== null) {
+    return (
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetHeader>
+          <SheetTitle className="font-display text-2xl">Not enough capacity</SheetTitle>
+          <SheetDescription>
+            {shortfall === 0
+              ? `Locker ${locker.locker_number} is full right now.`
+              : `Only ${shortfall} crate${shortfall === 1 ? "" : "s"} ${shortfall === 1 ? "is" : "are"} available in locker ${locker.locker_number}.`}
+          </SheetDescription>
+        </SheetHeader>
+        <div className="space-y-3 px-4 pb-6">
+          <p className="rounded-lg bg-muted p-3 text-sm">
+            Someone else took the space while you were booking. Nothing was saved.
+          </p>
+          {shortfall > 0 ? (
+            <Button
+              className="h-14 w-full text-base"
+              onClick={() => {
+                setCrates(Math.min(crates, shortfall));
+                setShortfall(null);
+              }}
+            >
+              Change quantity
+            </Button>
+          ) : (
+            <Button className="h-14 w-full text-base" onClick={onClose}>
+              Back to board
+            </Button>
+          )}
+        </div>
+      </SheetContent>
+    );
+  }
+
 
   if (done) {
     if (showBooking) {
