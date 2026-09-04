@@ -495,7 +495,7 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
       id: `${r.id}-created`,
       at: r.reserved_at,
       title: "Reservation created",
-      detail: `Locker ${lockerOf(r.locker_id)} · ${crates} · ${farmerOf(r.farmer_id)}`,
+      detail: `${lockerOf(r.locker_id)} · ${crates} · ${farmerOf(r.farmer_id)}`,
       tone: "tone-booked",
     });
     if (r.moved_at && r.moved_from_locker_id) {
@@ -513,7 +513,7 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
         id: `${r.id}-checkin`,
         at: r.checked_in_at,
         title: "Drop-off confirmed",
-        detail: `Locker ${lockerOf(r.locker_id)} · ${crates} moved into storage`,
+        detail: `${lockerOf(r.locker_id)} · ${crates} moved into storage`,
         tone: "tone-stored",
       });
     }
@@ -522,7 +522,7 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
         id: `${r.id}-pickup`,
         at: r.picked_up_at,
         title: "Pickup completed",
-        detail: `Locker ${lockerOf(r.locker_id)} · ${crates} released`,
+        detail: `${lockerOf(r.locker_id)} · ${crates} released`,
         tone: "tone-free",
       });
     }
@@ -533,8 +533,8 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
         at: r.cancelled_at,
         title: expired ? "Reservation expired" : "Reservation cancelled",
         detail: expired
-          ? `Locker ${lockerOf(r.locker_id)} · ${crates} released back to community storage`
-          : `Locker ${lockerOf(r.locker_id)} · ${crates}`,
+          ? `${lockerOf(r.locker_id)} · ${crates} released back to community storage`
+          : `${lockerOf(r.locker_id)} · ${crates}`,
         tone: expired ? "tone-down" : "tone-muted",
       });
     }
@@ -550,8 +550,8 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
         ? `${INCIDENT_LABEL[i.type]} resolved`
         : `${INCIDENT_LABEL[i.type]} reported`,
       detail: resolved
-        ? `Locker ${lockerOf(i.locker_id)} · back in service`
-        : `Locker ${lockerOf(i.locker_id)} · ${blocks ? "out of service" : "still available"}`,
+        ? `${lockerOf(i.locker_id)} · back in service`
+        : `${lockerOf(i.locker_id)} · ${blocks ? "out of service" : "still available"}`,
       tone: resolved ? "tone-free" : "tone-down",
     });
   }

@@ -181,7 +181,7 @@ function ReserveSheet({
     if (!stillOpen) {
       setSaving(false);
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
-      toast.error(`Locker ${locker.locker_number} is no longer available.`);
+      toast.error(`${locker.locker_number} is no longer available.`);
       onClose();
       return;
     }
@@ -227,7 +227,7 @@ function ReserveSheet({
     }
     setDone(created);
     toast.success(
-      `Reservation confirmed · Locker ${locker.locker_number} · ${created.crate_count} crate${
+      `Reservation confirmed · ${locker.locker_number} · ${created.crate_count} crate${
         created.crate_count === 1 ? "" : "s"
       } — check in within ${CHECK_IN_WINDOW_MINUTES} minutes.`,
     );
@@ -242,8 +242,8 @@ function ReserveSheet({
           <SheetTitle className="text-xl font-semibold">Not enough capacity</SheetTitle>
           <SheetDescription>
             {shortfall === 0
-              ? `Locker ${locker.locker_number} is full right now.`
-              : `Only ${shortfall} crate${shortfall === 1 ? "" : "s"} ${shortfall === 1 ? "is" : "are"} available in locker ${locker.locker_number}.`}
+              ? `${locker.locker_number} is full right now.`
+              : `Only ${shortfall} crate${shortfall === 1 ? "" : "s"} ${shortfall === 1 ? "is" : "are"} available in ${locker.locker_number}.`}
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-3 px-4 pb-6">
@@ -280,7 +280,7 @@ function ReserveSheet({
         <SheetHeader>
           <SheetTitle className="text-xl font-semibold">✓ Locker reserved</SheetTitle>
           <SheetDescription>
-            Locker {locker.locker_number} · {SLOT_LABEL[done.slot as HarvestSlot] ?? done.slot} ·{" "}
+            {locker.locker_number} · {SLOT_LABEL[done.slot as HarvestSlot] ?? done.slot} ·{" "}
             {done.crate_count} crate{done.crate_count === 1 ? "" : "s"}
           </SheetDescription>
         </SheetHeader>
@@ -311,7 +311,7 @@ function ReserveSheet({
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="text-xl font-semibold">Locker {locker.locker_number}</SheetTitle>
+        <SheetTitle className="text-xl font-semibold">{locker.locker_number}</SheetTitle>
         <SheetDescription>
           {free} of {locker.capacity} crates free in {SLOT_LABEL[pickedSlot].toLowerCase()} ·{" "}
           {Number(locker.temperature).toFixed(1)} °C · {tState}
@@ -454,7 +454,7 @@ function ReservationSheet({
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
         <SheetTitle className="text-xl font-semibold">
-          Locker {locker.locker_number} · {storing ? "Storage" : "Booking"}
+          {locker.locker_number} · {storing ? "Storage" : "Booking"}
         </SheetTitle>
         <SheetDescription>{LOCKER_LABEL[locker.status]}</SheetDescription>
       </SheetHeader>
@@ -501,7 +501,7 @@ function ReservationSheet({
                 (expired ? (
                   <div className="mt-3 space-y-2">
                     <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm font-semibold">
-                      Reservation expired — locker {locker.locker_number} was released because the
+                      Reservation expired — {locker.locker_number} was released because the
                       crates were not checked in within {CHECK_IN_WINDOW_MINUTES} minutes.
                     </p>
                     <Button
@@ -632,7 +632,7 @@ function DropOffContent({
         <div className="space-y-4 px-4 pt-2 pb-6 text-center">
           <p className="text-2xl font-semibold">✓ Drop-off confirmed</p>
           <div className="panel p-4">
-            <p className="text-xl font-semibold">Locker {locker.locker_number}</p>
+            <p className="text-xl font-semibold">{locker.locker_number}</p>
             <p className="mt-1 text-lg font-semibold">
               {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"}
             </p>
@@ -683,7 +683,7 @@ function DropOffContent({
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
         <SheetTitle className="text-xl font-semibold">
-          Drop-off · Locker {locker.locker_number}
+          Drop-off · {locker.locker_number}
         </SheetTitle>
         <SheetDescription>
           {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
@@ -812,7 +812,7 @@ function PickupContent({
           <p className="text-2xl font-semibold">✓ Pickup verified</p>
           <div className="panel p-4">
             <p className="text-xl font-semibold">
-              Locker {locker.locker_number} released.
+              {locker.locker_number} released.
             </p>
             <p className="mt-1 text-lg font-semibold">
               {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} removed from
@@ -847,7 +847,7 @@ function PickupContent({
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
         <SheetTitle className="text-xl font-semibold">
-          Locker {locker.locker_number} · Pickup
+          {locker.locker_number} · Pickup
         </SheetTitle>
         <SheetDescription>
           {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
@@ -934,8 +934,8 @@ function ReportIssueContent({
           <SheetTitle className="text-xl font-semibold">✓ Issue reported</SheetTitle>
           <SheetDescription>
             {option?.blocks
-              ? `Locker ${done} has been marked out of service.`
-              : `Thanks — the issue on locker ${done} has been logged.`}
+              ? `${done} has been marked out of service.`
+              : `Thanks — the issue on ${done} has been logged.`}
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-3 px-4 pb-6">
@@ -1104,11 +1104,24 @@ function LockerCard({
 
   return (
     <article
-      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(locker.status).replace("tone-", "edge-")}`}
+      role={open ? "button" : undefined}
+      tabIndex={open ? 0 : undefined}
+      onClick={open ? () => setSheet("reserve") : undefined}
+      onKeyDown={
+        open
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSheet("reserve");
+              }
+            }
+          : undefined
+      }
+      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(locker.status).replace("tone-", "edge-")} ${open ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="card-title truncate">Locker {locker.locker_number}</h3>
+          <h3 className="card-title truncate">{locker.locker_number}</h3>
           <p className="meta-text mt-0.5 truncate">{locker.zone}</p>
         </div>
         <Chip tone={statusTone(locker.status)}>
@@ -1160,7 +1173,7 @@ function LockerCard({
         </>
       )}
 
-      <div className="mt-3 grid gap-2">
+      <div className="mt-3 grid gap-2" onClick={(e) => e.stopPropagation()}>
         {down ? (
           used > 0 ? (
             <Button
@@ -1439,7 +1452,7 @@ function Board() {
               <div className="flex items-center justify-between gap-3">
                 <h2 className="section-heading">
                   {statusFilter === null
-                    ? "Lockers"
+                    ? "Locker availability"
                     : statusFilter === "DOWN"
                       ? "Out of service"
                       : `${LOCKER_LABEL[statusFilter]} lockers`}
@@ -1584,7 +1597,7 @@ function BookingCard({
               reservation
             </p>
           )}
-          <h3 className="card-title truncate">🫐 Locker {locker?.locker_number ?? "—"}</h3>
+          <h3 className="card-title truncate">🫐 {locker?.locker_number ?? "—"}</h3>
           <p className="meta-text truncate">
             {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
             {SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot}
@@ -1658,7 +1671,7 @@ function BookingCard({
       {lockerDown && ACTIVE_RESERVATION_STATUSES.includes(reservation.status) && (
         <div className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
           <p className="font-semibold">
-            ⚠ Your locker is unavailable · Locker {locker?.locker_number}
+            ⚠ Your locker is unavailable · {locker?.locker_number}
           </p>
           {incidents[0] && (
             <p className="mt-0.5">{INCIDENT_LABEL[incidents[0].type]} reported</p>
@@ -1772,7 +1785,7 @@ function LastReservationCard({ data }: { data: BoardData }) {
     return (
       <section className="panel border-destructive/50 p-4" aria-label="Reservation expired">
         <p className="stat-label">Reservation expired</p>
-        <p className="card-title mt-0.5">Locker {locker?.locker_number ?? "—"}</p>
+        <p className="card-title mt-0.5">{locker?.locker_number ?? "—"}</p>
         <p className="mt-2 text-sm text-muted-foreground">
           {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} released back to
           community storage because they were not checked in within {CHECK_IN_WINDOW_MINUTES}{" "}
@@ -1921,7 +1934,7 @@ function MoveContent({
     try {
       await moveReservation(reservation, targetId);
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
-      toast.success(`Reservation moved to Locker ${label}. Your code stays the same.`);
+      toast.success(`Reservation moved to ${label}. Your code stays the same.`);
       onClose();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "The booking could not be moved.");
@@ -1935,7 +1948,7 @@ function MoveContent({
       <SheetHeader>
         <SheetTitle className="text-xl font-semibold">Move reservation</SheetTitle>
         <SheetDescription>
-          Locker {locker.locker_number} is out of service. Pick another locker with room for{" "}
+          {locker.locker_number} is out of service. Pick another locker with room for{" "}
           {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} in the{" "}
           {(SLOT_LABEL[slot] ?? slot).toLowerCase()} slot.
         </SheetDescription>
@@ -1954,7 +1967,7 @@ function MoveContent({
             return (
               <div key={l.id} className="panel-flat p-3">
                 <p className="text-sm font-semibold">
-                  Locker {l.locker_number} · {free} crate{free === 1 ? "" : "s"} available
+                  {l.locker_number} · {free} crate{free === 1 ? "" : "s"} available
                 </p>
                 <p className="meta-text mt-0.5">
                   {l.zone} · {Number(l.temperature).toFixed(1)} °C · {t}
