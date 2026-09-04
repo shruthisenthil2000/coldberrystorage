@@ -973,14 +973,24 @@ function ReportIssueContent({
           />
         </div>
 
-        <Button
-          type="button"
-          disabled={!type || !picked || saving}
-          className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
-          onClick={submit}
-        >
-          {saving ? "Reporting…" : "Report issue"}
-        </Button>
+        {type && (
+          <p className="meta-text">
+            {INCIDENT_OPTIONS.find((o) => o.type === type)?.blocks
+              ? "This locker will be marked out of service straight away."
+              : "The locker stays available — the issue is logged for the team."}
+          </p>
+        )}
+
+        <div className="sticky bottom-0 -mx-4 border-t border-border bg-popover px-4 pt-3 pb-1">
+          <Button
+            type="button"
+            disabled={!type || !picked || saving}
+            className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
+            onClick={submit}
+          >
+            {saving ? "Reporting…" : "Report issue"}
+          </Button>
+        </div>
       </div>
     </SheetContent>
   );
