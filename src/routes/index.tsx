@@ -35,7 +35,7 @@ import { useSyncExternalStore } from "react";
 
 export const Route = createFileRoute("/")({
   validateSearch: (search): { slot: HarvestSlot } => ({
-    slot: search.slot === "AFTERNOON" ? "AFTERNOON" : "MORNING",
+    slot: search["slot"] === "AFTERNOON" ? "AFTERNOON" : "MORNING",
   }),
   head: () => ({
     meta: [
