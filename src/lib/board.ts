@@ -20,30 +20,78 @@ export type BoardData = {
   farmers: Farmer[];
   reservations: Reservation[];
   incidents: Incident[];
+  /** When this snapshot was fetched from the server. */
+  syncedAt: string;
+  /** True when the snapshot came from the local cache, not a live read. */
+  fromCache: boolean;
 };
 
+const BOARD_CACHE_KEY = "coldstore:board-cache";
+
+export function readCachedBoard(): BoardData | null {
+  try {
+    const raw = localStorage.getItem(BOARD_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as BoardData;
+    if (!parsed || !Array.isArray(parsed.lockers)) return null;
+    return { ...parsed, fromCache: true };
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedBoard(data: BoardData): void {
+  try {
+    localStorage.setItem(BOARD_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    /* storage unavailable — the app still works, just without offline cache */
+  }
+}
+
+export function isOffline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
 export async function fetchBoard(): Promise<BoardData> {
-  // Lazy expiration: release RESERVED reservations whose 45-minute check-in
-  // deadline has passed BEFORE computing availability. Runs on every board
-  // load/refresh, so expired capacity is freed without any background job.
-  await expireOverdueReservations();
+  // Offline: serve the last synced snapshot instead of failing the whole board.
+  if (isOffline()) {
+    const cached = readCachedBoard();
+    if (cached) return cached;
+    throw new Error("You're offline and no locker information has been saved yet.");
+  }
 
-  const [lockers, farmers, reservations, incidents] = await Promise.all([
-    supabase.from("lockers").select("*").order("locker_number"),
-    supabase.from("farmers").select("*").order("name"),
-    supabase.from("reservations").select("*").order("reserved_at", { ascending: false }),
-    supabase.from("incidents").select("*").order("reported_at", { ascending: false }),
-  ]);
+  try {
+    // Lazy expiration: release RESERVED reservations whose 45-minute check-in
+    // deadline has passed BEFORE computing availability. Runs on every board
+    // load/refresh, so expired capacity is freed without any background job.
+    await expireOverdueReservations();
 
-  const error = lockers.error || farmers.error || reservations.error || incidents.error;
-  if (error) throw error;
+    const [lockers, farmers, reservations, incidents] = await Promise.all([
+      supabase.from("lockers").select("*").order("locker_number"),
+      supabase.from("farmers").select("*").order("name"),
+      supabase.from("reservations").select("*").order("reserved_at", { ascending: false }),
+      supabase.from("incidents").select("*").order("reported_at", { ascending: false }),
+    ]);
 
-  return {
-    lockers: lockers.data ?? [],
-    farmers: farmers.data ?? [],
-    reservations: reservations.data ?? [],
-    incidents: incidents.data ?? [],
-  };
+    const error = lockers.error || farmers.error || reservations.error || incidents.error;
+    if (error) throw error;
+
+    const fresh: BoardData = {
+      lockers: lockers.data ?? [],
+      farmers: farmers.data ?? [],
+      reservations: reservations.data ?? [],
+      incidents: incidents.data ?? [],
+      syncedAt: new Date().toISOString(),
+      fromCache: false,
+    };
+    writeCachedBoard(fresh);
+    return fresh;
+  } catch (err) {
+    // Flaky network: fall back to the cached snapshot, clearly marked as stale.
+    const cached = readCachedBoard();
+    if (cached) return cached;
+    throw err;
+  }
 }
 
 /** Cancel every RESERVED reservation past its check-in deadline, releasing its crates. */
@@ -62,6 +110,7 @@ export const boardQuery = {
   // Re-check (and lazily expire) while the page stays open.
   refetchInterval: 30_000,
 };
+
 
 /** Crates committed to a locker by reservations that still occupy space. */
 export function usedCrates(lockerId: string, reservations: Reservation[]): number {
