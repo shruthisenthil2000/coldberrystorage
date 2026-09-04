@@ -1315,19 +1315,52 @@ function Board() {
   const now = useNow();
 
 
-  // When the connection comes back, pull authoritative locker/reservation state.
+  const [pending, setPending] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+
+  // Keep the "waiting to send" count in step with the local queue.
+  useEffect(() => {
+    const read = () => setPending(readIncidentQueue().length);
+    read();
+    window.addEventListener(QUEUE_EVENT, read);
+    return () => window.removeEventListener(QUEUE_EVENT, read);
+  }, []);
+
+  // When the connection comes back: send anything queued, then pull the
+  // authoritative locker/reservation state from the server.
   useEffect(() => {
     async function onBackOnline() {
+      setSyncing(true);
       toast.success("Back online · Syncing changes…");
+      const sent = await flushIncidentQueue();
+      setPending(readIncidentQueue().length);
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
-      toast.success("Back online · Synced");
-
+      setSyncing(false);
+      toast.success(
+        sent > 0
+          ? `Back online · Synced ${sent} saved report${sent === 1 ? "" : "s"}`
+          : "Back online · Synced",
+      );
     }
     window.addEventListener("online", onBackOnline);
     return () => window.removeEventListener("online", onBackOnline);
   }, [queryClient]);
 
-  const stale = !online || data?.fromCache === true;
+  // Anything queued from an earlier session goes out on the next load too.
+  useEffect(() => {
+    if (!online || readIncidentQueue().length === 0) return;
+    void (async () => {
+      setSyncing(true);
+      await flushIncidentQueue();
+      setPending(readIncidentQueue().length);
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      setSyncing(false);
+    })();
+    // Runs when connectivity flips to online.
+  }, [online, queryClient]);
+
+  const cached = !online || data?.fromCache === true;
+  const staleCache = cached && data ? isStale(data.syncedAt, now) : false;
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "short",
@@ -1361,18 +1394,20 @@ function Board() {
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
         {data && (
-          stale ? (
+          cached ? (
             <div className="panel-flat mb-4 flex items-center justify-between gap-3 p-3">
               <p className="text-sm">
                 <span className="flex items-center gap-2 font-semibold">
                   <span className="size-2.5 rounded-full tone-booked" aria-hidden="true" />
-                  Offline · Changes saved locally
+                  Offline · Showing last synced data
                 </span>
                 <span className="meta-text mt-0.5 block">
-                  Showing saved information · last synced {agoLabel(data.syncedAt, now)}
-
+                  {staleCache ? "Stale — may have changed · " : ""}last synced{" "}
+                  {agoLabel(data.syncedAt, now)}
+                  {pending > 0
+                    ? ` · ${pending} report${pending === 1 ? "" : "s"} saved locally, waiting for connection`
+                    : ""}
                 </span>
-
               </p>
               <Button
                 type="button"
@@ -1386,8 +1421,13 @@ function Board() {
             </div>
           ) : (
             <p className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-              <span className="size-2 rounded-full tone-free" aria-hidden="true" />
-              {isFetching ? "Syncing…" : `Live · synced ${agoLabel(data.syncedAt, now)}`}
+              <span
+                className={`size-2 rounded-full ${isFetching || syncing ? "tone-booked" : "tone-free"}`}
+                aria-hidden="true"
+              />
+              {isFetching || syncing
+                ? "Syncing…"
+                : `Live · synced ${agoLabel(data.syncedAt, now)}`}
             </p>
 
           )
