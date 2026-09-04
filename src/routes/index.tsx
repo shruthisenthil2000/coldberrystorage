@@ -1360,7 +1360,7 @@ function Board() {
   }, [online, queryClient]);
 
   const cached = !online || data?.fromCache === true;
-  const staleCache = cached && data ? isStale(data.syncedAt, now) : false;
+  const staleCache = cached && data ? isStale(data.syncedAt, new Date(now)) : false;
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "short",
