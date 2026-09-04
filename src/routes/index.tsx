@@ -1304,10 +1304,11 @@ function Board() {
               <p className="text-sm">
                 <span className="flex items-center gap-2 font-semibold">
                   <span className="size-2.5 rounded-full tone-booked" aria-hidden="true" />
-                  Offline
+                  Offline · Changes saved locally
                 </span>
                 <span className="meta-text mt-0.5 block">
                   Showing saved information · last synced {agoLabel(data.syncedAt, now)}
+
                 </span>
 
               </p>
