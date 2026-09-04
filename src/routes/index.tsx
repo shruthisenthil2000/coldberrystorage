@@ -53,6 +53,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { PhoneShell } from "@/components/PhoneShell";
 import { useTheme } from "@/lib/theme";
 import { useSyncExternalStore } from "react";
@@ -139,6 +141,7 @@ function ReserveSheet({
   const [liveFreeCrates, setLiveFreeCrates] = useState<number | null>(null);
   const [farmerId, setFarmerId] = useState(data.farmers[0]?.id ?? "");
   const [pickedSlot, setPickedSlot] = useState<HarvestSlot>(slot);
+  const [harvestDate, setHarvestDate] = useState<Date>(new Date());
   // Capacity is per harvest slot, so the numbers follow the chosen slot.
   const free = liveFreeCrates ?? freeCrates(locker, data.reservations, pickedSlot);
   const [crates, setCrates] = useState(1);
