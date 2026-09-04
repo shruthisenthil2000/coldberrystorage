@@ -251,7 +251,17 @@ function ReserveSheet({
     );
 
     await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+    } catch (e) {
+      // Network/server failure: nothing was confirmed, so never show success.
+      setSaving(false);
+      toast.error(
+        e instanceof Error && e.message
+          ? `Couldn't complete this action (${e.message}). Your data was not changed — try again.`
+          : "Couldn't complete this action. Your data was not changed — try again.",
+      );
+    }
   }
+
 
   if (shortfall !== null) {
     return (
