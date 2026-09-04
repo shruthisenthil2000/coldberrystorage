@@ -343,10 +343,10 @@
       background: radial-gradient(circle at 50% 0%, oklch(0.26 0.02 260), oklch(0.16 0.01 260) 70%);
     }
     .phone-frame {
-      /* iPhone 15 Plus aspect: 430 x 932 */
+      /* iPhone 15 Plus class: 430px logical width */
       position: relative;
-      width: min(400px, calc((100dvh - 48px) * 0.4616));
-      height: min(866px, calc(100dvh - 48px));
+      width: min(430px, calc(100vw - 32px));
+      height: min(900px, calc(100dvh - 32px));
       border-radius: 3.25rem;
       border: 10px solid oklch(0.16 0.01 260);
       outline: 1.5px solid oklch(0.45 0.02 260 / 0.6);

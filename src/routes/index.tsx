@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { AlertTriangle, History, LayoutGrid, Moon, PackageCheck, Sun } from "lucide-react";
+import { AlertTriangle, History, LayoutGrid, Moon, PackageCheck, Sun, Sunrise, Sunset } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -1276,23 +1276,32 @@ function Board() {
 
             <section className="mt-5" aria-label="Harvest slot">
               <p className="stat-label mb-2">Harvest slot</p>
-              <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="group">
-                {(["MORNING", "AFTERNOON"] as const).map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    aria-pressed={slot === s}
-                    onClick={() => navigate({ search: { slot: s }, replace: true })}
-                    className={`pressable h-11 rounded-lg text-[15px] font-semibold ${
-                      slot === s
-                        ? "btn-gradient shadow-sm"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {s === "MORNING" ? "🌅 " : "🌇 "}
-                    {SLOT_LABEL[s]}
-                  </button>
-                ))}
+              <div className="grid grid-cols-2 gap-2" role="group">
+                {(["MORNING", "AFTERNOON"] as const).map((s) => {
+                  const Icon = s === "MORNING" ? Sunrise : Sunset;
+                  const active = slot === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => navigate({ search: { slot: s }, replace: true })}
+                      className={`pressable flex min-h-[64px] items-center justify-center gap-2.5 rounded-xl border px-3 ${
+                        active
+                          ? "btn-gradient border-transparent shadow-sm"
+                          : "panel text-foreground"
+                      }`}
+                    >
+                      <Icon className="size-6 shrink-0" aria-hidden="true" />
+                      <span className="text-left leading-tight">
+                        <span className="block text-[15px] font-semibold">{SLOT_LABEL[s]}</span>
+                        <span className={`block text-xs ${active ? "opacity-80" : "text-muted-foreground"}`}>
+                          {s === "MORNING" ? "6 – 11 AM" : "12 – 5 PM"}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
