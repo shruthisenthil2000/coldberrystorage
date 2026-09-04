@@ -1785,3 +1785,104 @@ function Countdown({ deadline }: { deadline: string }) {
     </div>
   );
 }
+
+/**
+ * Emergency re-booking: a still-RESERVED booking whose locker went out of
+ * service can be moved to another locker with room in the same harvest slot.
+ * The booking is never silently deleted.
+ */
+function MoveContent({
+  locker,
+  reservation,
+  data,
+  onClose,
+}: {
+  locker: Locker;
+  reservation: Reservation;
+  data: BoardData;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState<string | null>(null);
+  const slot = reservation.slot as HarvestSlot;
+
+  const options = data.lockers
+    .filter(
+      (l) =>
+        l.id !== locker.id &&
+        !isOutOfService(l) &&
+        freeCrates(l, data.reservations, slot) >= reservation.crate_count,
+    )
+    .sort(
+      (a, b) =>
+        freeCrates(b, data.reservations, slot) - freeCrates(a, data.reservations, slot),
+    );
+
+  async function move(targetId: string, label: string) {
+    if (saving) return;
+    setSaving(targetId);
+    try {
+      await moveReservation(reservation, targetId);
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      toast.success(`Reservation moved to Locker ${label}. Your code stays the same.`);
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The booking could not be moved.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  return (
+    <SheetContent side="bottom" className="rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="text-xl font-semibold">Move reservation</SheetTitle>
+        <SheetDescription>
+          Locker {locker.locker_number} is out of service. Pick another locker with room for{" "}
+          {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} in the{" "}
+          {(SLOT_LABEL[slot] ?? slot).toLowerCase()} slot.
+        </SheetDescription>
+      </SheetHeader>
+
+      <div className="grid gap-3 px-4 pb-6">
+        {options.length === 0 ? (
+          <p className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
+            No suitable storage is currently available. Your booking is kept — try again shortly or
+            report it to the shed keeper.
+          </p>
+        ) : (
+          options.map((l) => {
+            const free = freeCrates(l, data.reservations, slot);
+            const t = tempState(Number(l.temperature));
+            return (
+              <div key={l.id} className="panel-flat p-3">
+                <p className="text-sm font-semibold">
+                  Locker {l.locker_number} · {free} crate{free === 1 ? "" : "s"} available
+                </p>
+                <p className="meta-text mt-0.5">
+                  {l.zone} · {Number(l.temperature).toFixed(1)} °C · {t}
+                </p>
+                <Button
+                  type="button"
+                  disabled={saving !== null}
+                  className="pressable mt-2 h-12 w-full rounded-xl text-[15px] font-semibold"
+                  onClick={() => void move(l.id, l.locker_number)}
+                >
+                  {saving === l.id ? "Moving…" : "Move here"}
+                </Button>
+              </div>
+            );
+          })
+        )}
+        <Button
+          type="button"
+          variant="secondary"
+          className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
+          onClick={onClose}
+        >
+          Keep it here for now
+        </Button>
+      </div>
+    </SheetContent>
+  );
+}
