@@ -1535,7 +1535,7 @@ function BookingCard({
           </div>
           <div className="panel-flat p-3">
             <p className="stat-label">Pickup code</p>
-            <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
+            <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums text-stored">
               {reservation.pickup_code}
             </p>
           </div>
