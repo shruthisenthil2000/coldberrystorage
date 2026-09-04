@@ -980,6 +980,46 @@ function ReportIssueContent({
 }
 
 
+/** Shown instead of the booking form when the device has no connection. */
+function OfflineNotice({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const online = useOnline();
+  const [retrying, setRetrying] = useState(false);
+
+  return (
+    <SheetContent side="bottom" className="rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="font-display text-2xl">You're offline</SheetTitle>
+        <SheetDescription>
+          Locker information is available from your last sync.
+        </SheetDescription>
+      </SheetHeader>
+      <div className="space-y-3 px-4 pb-6">
+        <p className="rounded-lg bg-muted p-3 text-sm">
+          New reservations require a connection to prevent double-booking.
+        </p>
+        <Button
+          className="h-14 w-full text-base font-bold"
+          disabled={retrying}
+          onClick={async () => {
+            setRetrying(true);
+            await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+            setRetrying(false);
+            if (online) {
+              toast.success("Back online — locker information refreshed.");
+              onClose();
+            } else {
+              toast.error("Still offline. Showing your last synced information.");
+            }
+          }}
+        >
+          {retrying ? "Checking…" : "Retry connection"}
+        </Button>
+      </div>
+    </SheetContent>
+  );
+}
+
 function LockerCard({
   locker,
   data,
@@ -993,7 +1033,9 @@ function LockerCard({
   const open = isReservable(locker, data.reservations);
   const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
+  const online = useOnline();
   const [sheet, setSheet] = useState<"reserve" | "view" | "report" | null>(null);
+
 
   const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
 
@@ -1084,7 +1126,11 @@ function LockerCard({
 
       <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
         {sheet === "reserve" ? (
-          <ReserveSheet locker={locker} slot={slot} data={data} onClose={() => setSheet(null)} />
+          online ? (
+            <ReserveSheet locker={locker} slot={slot} data={data} onClose={() => setSheet(null)} />
+          ) : (
+            <OfflineNotice onClose={() => setSheet(null)} />
+          )
         ) : sheet === "view" ? (
           <ReservationSheet locker={locker} data={data} onClose={() => setSheet(null)} />
         ) : sheet === "report" ? (
@@ -1103,10 +1149,21 @@ function LockerCard({
 function Board() {
   const { slot } = Route.useSearch();
   const navigate = useNavigate({ from: "/" });
-  const { data, isPending, error } = useQuery(boardQuery);
+  const queryClient = useQueryClient();
+  const { data, isPending, error, refetch, isFetching } = useQuery(boardQuery);
   const online = useOnline();
   const [reporting, setReporting] = useState(false);
 
+  // When the connection comes back, pull authoritative locker/reservation state.
+  useEffect(() => {
+    function onBackOnline() {
+      queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+    }
+    window.addEventListener("online", onBackOnline);
+    return () => window.removeEventListener("online", onBackOnline);
+  }, [queryClient]);
+
+  const stale = !online || data?.fromCache === true;
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -1125,13 +1182,33 @@ function Board() {
           <p className="mt-1 text-sm text-muted-foreground">{today}</p>
         </div>
         <span
-          className={`status-chip ${online ? "tone-free" : "tone-down"}`}
+          className={`status-chip ${online ? "tone-free" : "tone-booked"}`}
           role="status"
         >
           {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
-          {online ? "Online" : "Offline"}
+          {online ? "🟢 Online" : "🟡 Offline"}
         </span>
       </header>
+
+      {stale && data && (
+        <div className="panel mt-3 flex items-center justify-between gap-3 border-2 border-primary/60 p-3">
+          <p className="text-sm font-semibold">
+            Showing data cached at {clockTime(data.syncedAt)}.
+            <span className="block font-normal text-muted-foreground">
+              New reservations need a connection.
+            </span>
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-h-11 shrink-0 font-bold"
+            disabled={isFetching}
+            onClick={() => refetch()}
+          >
+            {isFetching ? "Checking…" : "Retry"}
+          </Button>
+        </div>
+      )}
 
       {isPending && <p className="mt-8 text-muted-foreground">Loading the board…</p>}
       {error && (
@@ -1139,6 +1216,7 @@ function Board() {
           The board couldn't load. Check your connection and pull to refresh.
         </p>
       )}
+
 
       {data && (
         <>
