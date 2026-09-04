@@ -173,11 +173,18 @@ function ReserveSheet({
 
   async function reserve() {
     if (!farmerId || crates <= 0 || saving) return;
+    // Never confirm a booking the server hasn't accepted.
+    if (isOffline()) {
+      toast.error("You're offline. New reservations need a connection to prevent double-booking.");
+      return;
+    }
     setSaving(true);
     setShortfall(null);
 
+    try {
     // Free any expired reservations first so capacity reflects reality.
     await expireOverdueReservations();
+
     const [{ data: freshLocker }, { data: freshRes }] = await Promise.all([
       supabase.from("lockers").select("*").eq("id", locker.id).maybeSingle(),
       supabase.from("reservations").select("*").eq("locker_id", locker.id),
