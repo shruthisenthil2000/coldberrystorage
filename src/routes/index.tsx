@@ -1232,6 +1232,7 @@ function Board() {
   const { theme, toggle } = useTheme();
   const [reporting, setReporting] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
+  const [statusFilter, setStatusFilter] = useState<"AVAILABLE" | "RESERVED" | "IN_STORAGE" | "DOWN" | null>(null);
   const now = useNow();
 
 
