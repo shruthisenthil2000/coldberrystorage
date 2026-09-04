@@ -1256,9 +1256,10 @@ function Board() {
   // When the connection comes back, pull authoritative locker/reservation state.
   useEffect(() => {
     async function onBackOnline() {
-      toast.success("Back online — syncing changes…");
+      toast.success("Back online · Syncing changes…");
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
-      toast.success("Synced");
+      toast.success("Back online · Synced");
+
     }
     window.addEventListener("online", onBackOnline);
     return () => window.removeEventListener("online", onBackOnline);
