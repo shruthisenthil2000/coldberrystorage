@@ -1223,6 +1223,8 @@ function Board() {
   const { theme, toggle } = useTheme();
   const [reporting, setReporting] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
+  const now = useNow();
+
 
   // When the connection comes back, pull authoritative locker/reservation state.
   useEffect(() => {
