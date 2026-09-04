@@ -268,12 +268,9 @@
     color: var(--muted-foreground);
   }
 
-  /* Berry-tinted header with a soft radial glow */
+  /* Clean header that matches the active theme exactly */
   .header-hero {
-    background:
-      radial-gradient(120% 160% at 0% 0%, color-mix(in oklab, var(--stored) 22%, transparent), transparent 55%),
-      radial-gradient(120% 160% at 100% 0%, color-mix(in oklab, var(--free) 16%, transparent), transparent 55%),
-      var(--card);
+    background-color: var(--card);
   }
 
   /* Tinted summary tiles */
