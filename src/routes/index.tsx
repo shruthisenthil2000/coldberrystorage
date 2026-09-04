@@ -319,10 +319,23 @@ function ReservationSheet({
   data: BoardData;
   onClose: () => void;
 }) {
+  const [dropoff, setDropoff] = useState<Reservation | null>(null);
   const active = data.reservations.filter(
     (r) => r.locker_id === locker.id && ["RESERVED", "CHECKED_IN", "STORED"].includes(r.status),
   );
   const storing = locker.status === "IN_STORAGE";
+
+  if (dropoff) {
+    return (
+      <DropOffContent
+        locker={locker}
+        reservation={dropoff}
+        data={data}
+        onBack={() => setDropoff(null)}
+        onClose={onClose}
+      />
+    );
+  }
 
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
@@ -335,31 +348,261 @@ function ReservationSheet({
       <ul className="space-y-3 px-4 pb-6">
         {active.map((r) => {
           const farmer = data.farmers.find((f) => f.id === r.farmer_id);
+          const expired =
+            r.status === "RESERVED" && Date.now() > new Date(r.check_in_deadline).getTime();
           return (
             <li key={r.id} className="panel p-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-base font-bold">{farmer?.farm_name ?? "Unknown farm"}</span>
                 <Chip tone={reservationTone(r.status)}>{RESERVATION_LABEL[r.status]}</Chip>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {r.crate_count} crates · {SLOT_LABEL[r.slot as HarvestSlot] ?? r.slot} slot
-              </p>
-              {r.status === "RESERVED" ? (
-                <p className="mt-2 text-base font-semibold">
-                  Drop-off code <span className="font-display text-xl tracking-widest">{r.dropoff_code}</span>
-                  <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    by {shortTime(r.check_in_deadline)}
-                  </span>
-                </p>
-              ) : (
-                <p className="mt-2 text-base font-semibold">
-                  Pickup code <span className="font-display text-xl tracking-widest">{r.pickup_code}</span>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                <dt className="stat-label">Crates</dt>
+                <dd className="font-semibold">{r.crate_count}</dd>
+                <dt className="stat-label">Slot</dt>
+                <dd className="font-semibold">{SLOT_LABEL[r.slot as HarvestSlot] ?? r.slot}</dd>
+                <dt className="stat-label">Reserved</dt>
+                <dd className="font-semibold">{shortTime(r.reserved_at)}</dd>
+                {r.status === "RESERVED" && (
+                  <>
+                    <dt className="stat-label">Check in by</dt>
+                    <dd className="font-semibold">{shortTime(r.check_in_deadline)}</dd>
+                    <dt className="stat-label">Drop-off code</dt>
+                    <dd className="font-display text-lg font-bold tracking-widest">
+                      {r.dropoff_code}
+                    </dd>
+                  </>
+                )}
+                {r.status !== "RESERVED" && (
+                  <>
+                    <dt className="stat-label">Pickup code</dt>
+                    <dd className="font-display text-lg font-bold tracking-widest">
+                      {r.pickup_code}
+                    </dd>
+                  </>
+                )}
+              </dl>
+              {r.status === "RESERVED" &&
+                (expired ? (
+                  <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm font-semibold">
+                    This reservation has expired — the check-in deadline has passed.
+                  </p>
+                ) : (
+                  <Button
+                    type="button"
+                    className="mt-3 min-h-12 w-full text-base font-bold"
+                    onClick={() => setDropoff(r)}
+                  >
+                    Confirm drop-off
+                  </Button>
+                ))}
+              {r.status === "CHECKED_IN" && (
+                <p className="mt-3 rounded-md border border-border bg-muted p-2.5 text-sm font-semibold">
+                  Drop-off confirmed {shortTime(r.checked_in_at)} — no further check-in needed.
                 </p>
               )}
             </li>
           );
         })}
       </ul>
+    </SheetContent>
+  );
+}
+
+type DropOffStep = "code" | "confirm" | "success" | "expired" | "already";
+
+function DropOffContent({
+  locker,
+  reservation,
+  data,
+  onBack,
+  onClose,
+}: {
+  locker: Locker;
+  reservation: Reservation;
+  data: BoardData;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [step, setStep] = useState<DropOffStep>("code");
+  const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isExpired = Date.now() > new Date(reservation.check_in_deadline).getTime();
+  const farmer = data.farmers.find((f) => f.id === reservation.farmer_id);
+
+  async function confirm() {
+    if (submitting) return; // double-tap protection
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Expired: release the reservation, never check in.
+      if (Date.now() > new Date(reservation.check_in_deadline).getTime()) {
+        const { error: relErr } = await supabase
+          .from("reservations")
+          .update({ status: "CANCELLED", cancelled_at: new Date().toISOString() })
+          .eq("id", reservation.id)
+          .eq("status", "RESERVED");
+        if (relErr) throw relErr;
+        await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+        setStep("expired");
+        return;
+      }
+
+      // Wrong code: no state change, allow retry.
+      if (code.trim() !== reservation.dropoff_code) {
+        setError("That code doesn't match. Check the code and try again.");
+        setStep("code");
+        return;
+      }
+
+      // Conditional update: only succeeds if still RESERVED (no duplicate check-in).
+      const { data: updated, error: upErr } = await supabase
+        .from("reservations")
+        .update({ status: "CHECKED_IN", checked_in_at: new Date().toISOString() })
+        .eq("id", reservation.id)
+        .eq("status", "RESERVED")
+        .select("*");
+      if (upErr) throw upErr;
+
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      setStep(updated && updated.length > 0 ? "success" : "already");
+    } catch (e) {
+      // Network / server failure: no false success, allow retry.
+      setError(
+        e instanceof Error && e.message
+          ? `Couldn't reach the storage service (${e.message}). Nothing was changed — tap Retry.`
+          : "Couldn't reach the storage service. Nothing was changed — tap Retry.",
+      );
+      setStep("code");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (step === "success") {
+    return (
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <div className="space-y-4 px-4 pt-2 pb-6 text-center">
+          <p className="font-display text-3xl font-bold tracking-tight">✓ Drop-off confirmed</p>
+          <div className="panel p-4">
+            <p className="font-display text-2xl font-bold">Locker {locker.locker_number}</p>
+            <p className="mt-1 text-lg font-semibold">
+              {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">Crates are now stored.</p>
+          </div>
+          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </SheetContent>
+    );
+  }
+
+  if (step === "expired") {
+    return (
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <div className="space-y-4 px-4 pt-2 pb-6 text-center">
+          <p className="font-display text-3xl font-bold tracking-tight">Reservation expired</p>
+          <p className="text-base text-muted-foreground">
+            The check-in deadline ({shortTime(reservation.check_in_deadline)}) has passed. Locker{" "}
+            {locker.locker_number} has been released and can be reserved again.
+          </p>
+          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </SheetContent>
+    );
+  }
+
+  if (step === "already") {
+    return (
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <div className="space-y-4 px-4 pt-2 pb-6 text-center">
+          <p className="font-display text-3xl font-bold tracking-tight">Already checked in</p>
+          <p className="text-base text-muted-foreground">
+            This reservation was already confirmed — no new check-in was created.
+          </p>
+          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </SheetContent>
+    );
+  }
+
+  return (
+    <SheetContent side="bottom" className="rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="font-display text-2xl">
+          Drop-off · Locker {locker.locker_number}
+        </SheetTitle>
+        <SheetDescription>
+          {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
+          {SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot} slot ·{" "}
+          {farmer?.farm_name ?? "Unknown farm"} · check in by{" "}
+          {clockTime(reservation.check_in_deadline)}
+        </SheetDescription>
+      </SheetHeader>
+
+      {isExpired ? (
+        <div className="space-y-4 px-4 pb-6">
+          <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
+            The check-in deadline has passed. This reservation can no longer be checked in and will
+            be released.
+          </p>
+          <Button
+            type="button"
+            variant="destructive"
+            className="min-h-14 w-full text-lg font-bold"
+            disabled={submitting}
+            onClick={confirm}
+          >
+            {submitting ? "Releasing…" : "Release reservation"}
+          </Button>
+          <Button type="button" variant="ghost" className="min-h-12 w-full" onClick={onBack}>
+            Back
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-4 px-4 pb-6">
+          <div>
+            <label htmlFor="dropoff-code" className="stat-label mb-2 block">
+              Enter the 4-digit drop-off code
+            </label>
+            <input
+              id="dropoff-code"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={4}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+              className="panel font-display w-full px-4 py-3 text-center text-4xl font-bold tracking-[0.5em]"
+              placeholder="····"
+            />
+          </div>
+          {error && (
+            <p role="alert" className="text-sm font-semibold text-destructive">
+              {error}
+            </p>
+          )}
+          <Button
+            type="button"
+            className="min-h-14 w-full text-lg font-bold"
+            disabled={submitting || code.length !== 4}
+            onClick={confirm}
+          >
+            {submitting ? "Checking…" : error ? "Retry" : "Confirm"}
+          </Button>
+          <Button type="button" variant="ghost" className="min-h-12 w-full" onClick={onBack}>
+            Back
+          </Button>
+        </div>
+      )}
     </SheetContent>
   );
 }
