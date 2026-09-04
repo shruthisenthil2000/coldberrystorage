@@ -560,3 +560,102 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
     .filter((e) => new Date(e.at).getTime() <= now + 60_000)
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 }
+
+/* ------------------------------------------------------ locker size labels */
+
+/** Physical size of a locker, shown for reference while booking. */
+export function lockerSize(capacity: number): "Small" | "Medium" | "Large" {
+  if (capacity <= 8) return "Small";
+  if (capacity <= 14) return "Medium";
+  return "Large";
+}
+
+export function lockerSizeLabel(capacity: number): string {
+  return `${lockerSize(capacity)} · ${capacity} crates`;
+}
+
+/* ------------------------------------------------------------ offline cache */
+
+/** Cached availability older than this is shown as stale, not live. */
+export const STALE_AFTER_MS = 5 * 60 * 1000;
+
+export function isStale(syncedAt: string, now: Date = new Date()): boolean {
+  const t = new Date(syncedAt).getTime();
+  return Number.isFinite(t) === false || now.getTime() - t > STALE_AFTER_MS;
+}
+
+/* ------------------------------------------------- queued offline incidents */
+
+export type QueuedIncident = {
+  id: string;
+  lockerId: string;
+  type: IncidentType;
+  description: string;
+  queuedAt: string;
+};
+
+const INCIDENT_QUEUE_KEY = "coldstore:incident-queue";
+/** Fired whenever the queue changes so the UI can show the pending count. */
+export const QUEUE_EVENT = "coldstore:queue-changed";
+
+export function readIncidentQueue(): QueuedIncident[] {
+  try {
+    const raw = localStorage.getItem(INCIDENT_QUEUE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as QueuedIncident[]) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeIncidentQueue(items: QueuedIncident[]): void {
+  try {
+    localStorage.setItem(INCIDENT_QUEUE_KEY, JSON.stringify(items));
+    window.dispatchEvent(new Event(QUEUE_EVENT));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+export function queueIncident(input: {
+  lockerId: string;
+  type: IncidentType;
+  description: string;
+}): QueuedIncident {
+  const queued: QueuedIncident = {
+    id:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+    lockerId: input.lockerId,
+    type: input.type,
+    description: input.description,
+    queuedAt: new Date().toISOString(),
+  };
+  writeIncidentQueue([...readIncidentQueue(), queued]);
+  return queued;
+}
+
+/**
+ * Send every queued incident to the server, in the order it was reported.
+ * Items that fail stay in the queue for the next attempt; each item is removed
+ * only once the server has accepted it, so nothing is sent twice.
+ */
+export async function flushIncidentQueue(): Promise<number> {
+  if (isOffline()) return 0;
+  let sent = 0;
+  for (const item of readIncidentQueue()) {
+    try {
+      await reportIncident({
+        lockerId: item.lockerId,
+        type: item.type,
+        description: item.description,
+      });
+      writeIncidentQueue(readIncidentQueue().filter((q) => q.id !== item.id));
+      sent += 1;
+    } catch {
+      break;
+    }
+  }
+  return sent;
+}
