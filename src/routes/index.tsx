@@ -1126,7 +1126,11 @@ function LockerCard({
 
       <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
         {sheet === "reserve" ? (
-          <ReserveSheet locker={locker} slot={slot} data={data} onClose={() => setSheet(null)} />
+          online ? (
+            <ReserveSheet locker={locker} slot={slot} data={data} onClose={() => setSheet(null)} />
+          ) : (
+            <OfflineNotice onClose={() => setSheet(null)} />
+          )
         ) : sheet === "view" ? (
           <ReservationSheet locker={locker} data={data} onClose={() => setSheet(null)} />
         ) : sheet === "report" ? (
