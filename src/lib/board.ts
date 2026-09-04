@@ -128,13 +128,19 @@ export function isReservable(locker: Locker, reservations: Reservation[]): boole
   return freeCrates(locker, reservations) > 0;
 }
 
+/** The only four locker states the farmer ever sees. */
 export const LOCKER_LABEL: Record<LockerStatus, string> = {
-  AVAILABLE: "Free",
+  AVAILABLE: "Available",
   RESERVED: "Booked",
   IN_STORAGE: "In storage",
-  MAINTENANCE: "Maintenance",
-  BREAKDOWN: "Broken",
+  MAINTENANCE: "Out of service",
+  BREAKDOWN: "Out of service",
 };
+
+/** True when the locker cannot take new crates for any reason. */
+export function isOutOfService(locker: Locker): boolean {
+  return locker.status === "MAINTENANCE" || locker.status === "BREAKDOWN";
+}
 
 export const RESERVATION_LABEL: Record<ReservationStatus, string> = {
   RESERVED: "Booked",
