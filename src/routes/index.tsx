@@ -19,6 +19,7 @@ import {
   CHECK_IN_WINDOW_MINUTES,
   statusTone,
   tempState,
+  expireOverdueReservations,
   tempTone,
   type BoardData,
   type HarvestSlot,
@@ -125,7 +126,9 @@ function ReserveSheet({
     if (!farmerId || crates <= 0 || crates > free) return;
     setSaving(true);
 
-    // Re-check live capacity: someone else may have taken the space meanwhile.
+    // Free any expired reservations first so capacity reflects reality,
+    // then re-check live capacity: someone else may have taken the space meanwhile.
+    await expireOverdueReservations();
     const [{ data: freshLocker }, { data: freshRes }] = await Promise.all([
       supabase.from("lockers").select("*").eq("id", locker.id).maybeSingle(),
       supabase.from("reservations").select("*").eq("locker_id", locker.id),
@@ -396,9 +399,19 @@ function ReservationSheet({
               </dl>
               {r.status === "RESERVED" &&
                 (expired ? (
-                  <p className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm font-semibold">
-                    This reservation has expired — the check-in deadline has passed.
-                  </p>
+                  <div className="mt-3 space-y-2">
+                    <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm font-semibold">
+                      Reservation expired — locker {locker.locker_number} was released because the
+                      crates were not checked in within {CHECK_IN_WINDOW_MINUTES} minutes.
+                    </p>
+                    <Button
+                      type="button"
+                      className="min-h-12 w-full text-base font-bold"
+                      onClick={onClose}
+                    >
+                      Book again
+                    </Button>
+                  </div>
                 ) : (
                   <Button
                     type="button"
@@ -489,7 +502,17 @@ function DropOffContent({
       if (upErr) throw upErr;
 
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
-      setStep(updated && updated.length > 0 ? "success" : "already");
+      if (updated && updated.length > 0) {
+        setStep("success");
+      } else {
+        // No row updated: someone else changed it first. Find out what happened.
+        const { data: current } = await supabase
+          .from("reservations")
+          .select("status")
+          .eq("id", reservation.id)
+          .maybeSingle();
+        setStep(current?.status === "CANCELLED" ? "expired" : "already");
+      }
     } catch (e) {
       // Network / server failure: no false success, allow retry.
       setError(
@@ -990,8 +1013,45 @@ function LastReservationCard({ data }: { data: BoardData }) {
   }, []);
 
   const reservation = id ? data.reservations.find((r) => r.id === id) : undefined;
-  if (!reservation || reservation.status !== "RESERVED") return null;
+  if (!reservation) return null;
   const locker = data.lockers.find((l) => l.id === reservation.locker_id);
+
+  // Expired before check-in: the lazy expiration released the crates.
+  if (
+    reservation.status === "CANCELLED" &&
+    !reservation.checked_in_at &&
+    Date.now() > new Date(reservation.check_in_deadline).getTime()
+  ) {
+    return (
+      <section
+        className="panel mt-5 border-2 border-destructive/50 p-4"
+        aria-label="Reservation expired"
+      >
+        <p className="stat-label">Reservation expired</p>
+        <p className="font-display text-2xl font-bold">Locker {locker?.locker_number ?? "—"}</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Locker {locker?.locker_number ?? "—"} was released because the crates were not checked in
+          within {CHECK_IN_WINDOW_MINUTES} minutes.
+        </p>
+        <Button
+          type="button"
+          className="mt-3 min-h-12 w-full text-base font-bold"
+          onClick={() => {
+            try {
+              localStorage.removeItem(LAST_RESERVATION_KEY);
+            } catch {
+              /* ignore */
+            }
+            setId(null);
+          }}
+        >
+          Book again
+        </Button>
+      </section>
+    );
+  }
+
+  if (reservation.status !== "RESERVED") return null;
 
   return (
     <section className="panel mt-5 border-2 border-primary p-4" aria-label="Your reservation">

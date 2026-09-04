@@ -23,6 +23,11 @@ export type BoardData = {
 };
 
 export async function fetchBoard(): Promise<BoardData> {
+  // Lazy expiration: release RESERVED reservations whose 45-minute check-in
+  // deadline has passed BEFORE computing availability. Runs on every board
+  // load/refresh, so expired capacity is freed without any background job.
+  await expireOverdueReservations();
+
   const [lockers, farmers, reservations, incidents] = await Promise.all([
     supabase.from("lockers").select("*").order("locker_number"),
     supabase.from("farmers").select("*").order("name"),
@@ -41,9 +46,21 @@ export async function fetchBoard(): Promise<BoardData> {
   };
 }
 
+/** Cancel every RESERVED reservation past its check-in deadline, releasing its crates. */
+export async function expireOverdueReservations(now: Date = new Date()): Promise<void> {
+  const nowIso = now.toISOString();
+  await supabase
+    .from("reservations")
+    .update({ status: "CANCELLED", cancelled_at: nowIso })
+    .eq("status", "RESERVED")
+    .lt("check_in_deadline", nowIso);
+}
+
 export const boardQuery = {
   queryKey: ["board"] as const,
   queryFn: fetchBoard,
+  // Re-check (and lazily expire) while the page stays open.
+  refetchInterval: 30_000,
 };
 
 /** Crates committed to a locker by reservations that still occupy space. */
