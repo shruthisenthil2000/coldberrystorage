@@ -1049,6 +1049,8 @@ function Board() {
   const navigate = useNavigate({ from: "/" });
   const { data, isPending, error } = useQuery(boardQuery);
   const online = useOnline();
+  const [reporting, setReporting] = useState(false);
+
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
