@@ -1193,23 +1193,15 @@ function Board() {
 
   return (
     <PhoneShell online={online}>
-      <header className="shrink-0 border-b border-border bg-card/80 px-4 pt-2 pb-3 backdrop-blur">
+      <header className="header-hero shrink-0 border-b border-border px-4 pt-3 pb-4">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
-            <h1 className="screen-title truncate">ColdStore</h1>
-            <p className="meta-text truncate">Community storage · Today, {today}</p>
+            <h1 className="screen-title flex items-center gap-1.5 truncate">
+              <span aria-hidden="true">🍇</span> ColdStore
+            </h1>
+            <p className="meta-text truncate">Community berry storage · {today}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span
-              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
-              role="status"
-            >
-              <span
-                className={`size-2 rounded-full ${online ? "tone-free" : "tone-booked"}`}
-                aria-hidden="true"
-              />
-              {online ? "Online" : "Offline"}
-            </span>
             <button
               type="button"
               onClick={toggle}
