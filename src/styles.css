@@ -268,6 +268,45 @@
     color: var(--muted-foreground);
   }
 
+  /* Berry-tinted header with a soft radial glow */
+  .header-hero {
+    background:
+      radial-gradient(120% 160% at 0% 0%, color-mix(in oklab, var(--stored) 22%, transparent), transparent 55%),
+      radial-gradient(120% 160% at 100% 0%, color-mix(in oklab, var(--free) 16%, transparent), transparent 55%),
+      var(--card);
+  }
+
+  /* Tinted summary tiles */
+  .tile-free {
+    background-color: color-mix(in oklab, var(--free) 14%, var(--card));
+    border-color: color-mix(in oklab, var(--free) 40%, var(--border));
+  }
+  .tile-booked {
+    background-color: color-mix(in oklab, var(--booked) 16%, var(--card));
+    border-color: color-mix(in oklab, var(--booked) 42%, var(--border));
+  }
+  .tile-stored {
+    background-color: color-mix(in oklab, var(--stored) 14%, var(--card));
+    border-color: color-mix(in oklab, var(--stored) 40%, var(--border));
+  }
+  .tile-down {
+    background-color: color-mix(in oklab, var(--down) 12%, var(--card));
+    border-color: color-mix(in oklab, var(--down) 38%, var(--border));
+  }
+
+  /* Colored edge accent on locker cards */
+  .edge-free { box-shadow: inset 4px 0 0 var(--free), var(--shadow-card); }
+  .edge-booked { box-shadow: inset 4px 0 0 var(--booked), var(--shadow-card); }
+  .edge-stored { box-shadow: inset 4px 0 0 var(--stored), var(--shadow-card); }
+  .edge-warn { box-shadow: inset 4px 0 0 var(--warn), var(--shadow-card); }
+  .edge-down { box-shadow: inset 4px 0 0 var(--down), var(--shadow-card); }
+
+  /* Gradient primary action */
+  .btn-gradient {
+    background: linear-gradient(135deg, var(--primary), var(--stored));
+    color: var(--primary-foreground);
+  }
+
   /* Pressed state for native-feeling controls */
   .pressable {
     transition:
@@ -304,10 +343,10 @@
       background: radial-gradient(circle at 50% 0%, oklch(0.26 0.02 260), oklch(0.16 0.01 260) 70%);
     }
     .phone-frame {
-      width: 400px;
-      height: min(860px, calc(100dvh - 48px));
-      border-radius: 2.75rem;
-      border: 10px solid oklch(0.17 0.01 260);
+      width: 340px;
+      height: min(760px, calc(100dvh - 48px));
+      border-radius: 2.5rem;
+      border: 7px solid oklch(0.17 0.01 260);
       box-shadow:
         0 2px 6px oklch(0 0 0 / 0.25),
         0 30px 70px oklch(0 0 0 / 0.35);

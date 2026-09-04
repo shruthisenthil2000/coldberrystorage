@@ -1043,10 +1043,12 @@ function LockerCard({
 
 
   return (
-    <article className="panel flex flex-col p-4">
+    <article
+      className={`panel flex flex-col p-4 pl-5 ${statusTone(locker.status).replace("tone-", "edge-")}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="card-title truncate">Locker {locker.locker_number}</h3>
+          <h3 className="card-title truncate">🫐 Locker {locker.locker_number}</h3>
           <p className="meta-text mt-0.5 truncate">{locker.zone}</p>
         </div>
         <Chip tone={statusTone(locker.status)}>{LOCKER_LABEL[locker.status]}</Chip>
@@ -1100,7 +1102,7 @@ function LockerCard({
           <>
             {open && (
               <Button
-                className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
+                className="pressable btn-gradient h-12 w-full rounded-xl text-[15px] font-semibold"
                 onClick={() => setSheet("reserve")}
               >
                 Reserve
@@ -1193,23 +1195,15 @@ function Board() {
 
   return (
     <PhoneShell online={online}>
-      <header className="shrink-0 border-b border-border bg-card/80 px-4 pt-2 pb-3 backdrop-blur">
+      <header className="header-hero shrink-0 border-b border-border px-4 pt-3 pb-4">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
           <div className="min-w-0">
-            <h1 className="screen-title truncate">ColdStore</h1>
-            <p className="meta-text truncate">Community storage · Today, {today}</p>
+            <h1 className="screen-title flex items-center gap-1.5 truncate">
+              <span aria-hidden="true">🍇</span> ColdStore
+            </h1>
+            <p className="meta-text truncate">Community berry storage · {today}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span
-              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
-              role="status"
-            >
-              <span
-                className={`size-2 rounded-full ${online ? "tone-free" : "tone-booked"}`}
-                aria-hidden="true"
-              />
-              {online ? "Online" : "Offline"}
-            </span>
             <button
               type="button"
               onClick={toggle}
@@ -1267,7 +1261,10 @@ function Board() {
                   ],
                 ] as const
               ).map(([label, value, tone]) => (
-                <div key={label} className="panel flex items-center gap-3 p-3">
+                <div
+                  key={label}
+                  className={`flex items-center gap-3 rounded-[var(--radius)] border p-3 shadow-[var(--shadow-card)] ${tone.replace("tone-", "tile-")}`}
+                >
                   <span className={`size-2.5 shrink-0 rounded-full ${tone}`} aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-xl leading-tight font-semibold tabular-nums">{value}</p>
@@ -1288,10 +1285,11 @@ function Board() {
                     onClick={() => navigate({ search: { slot: s }, replace: true })}
                     className={`pressable h-11 rounded-lg text-[15px] font-semibold ${
                       slot === s
-                        ? "bg-card text-foreground shadow-sm"
+                        ? "btn-gradient shadow-sm"
                         : "text-muted-foreground"
                     }`}
                   >
+                    {s === "MORNING" ? "🌅 " : "🌇 "}
                     {SLOT_LABEL[s]}
                   </button>
                 ))}
@@ -1381,7 +1379,7 @@ function Board() {
                 aria-current={tab === key ? "page" : undefined}
                 onClick={() => setTab(key)}
                 className={`pressable flex h-14 w-full flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold ${
-                  tab === key ? "text-primary" : "text-muted-foreground"
+                  tab === key ? "bg-accent text-primary" : "text-muted-foreground"
                 }`}
               >
                 <Icon className="size-5" />
