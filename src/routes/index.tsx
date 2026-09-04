@@ -929,8 +929,8 @@ function ReportIssueContent({
         <SheetTitle className="text-xl font-semibold">⚠ Report issue</SheetTitle>
         <SheetDescription>What happened?</SheetDescription>
       </SheetHeader>
-      <div className="space-y-4 px-4 pb-6">
-        <div className="grid gap-2" role="group" aria-label="What happened?">
+      <div className="space-y-5 px-4 pb-6">
+        <div className="grid gap-3" role="group" aria-label="What happened?">
           {INCIDENT_OPTIONS.map((o) => (
             <button
               key={o.type}
@@ -947,12 +947,12 @@ function ReportIssueContent({
         </div>
 
         <div>
-          <label className="stat-label" htmlFor="incident-locker">
+          <label className="stat-label mb-2 block" htmlFor="incident-locker">
             Locker
           </label>
           <select
             id="incident-locker"
-            className="panel mt-1 h-12 w-full rounded-xl px-3 text-base font-semibold"
+            className="panel h-12 w-full rounded-xl px-3 text-base font-semibold"
             value={picked}
             onChange={(e) => setPicked(e.target.value)}
           >
@@ -965,7 +965,7 @@ function ReportIssueContent({
         </div>
 
         <div>
-          <label className="stat-label" htmlFor="incident-note">
+          <label className="stat-label mb-2 block" htmlFor="incident-note">
             Description (optional)
           </label>
           <textarea
@@ -974,7 +974,7 @@ function ReportIssueContent({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Short note"
-            className="panel mt-1 w-full px-3 py-2 text-base"
+            className="panel w-full rounded-xl px-3 py-2 text-base"
           />
         </div>
 
