@@ -1279,8 +1279,9 @@ function Board() {
                   Offline
                 </span>
                 <span className="meta-text mt-0.5 block">
-                  Showing saved information · last synced {clockTime(data.syncedAt)}
+                  Showing saved information · last synced {agoLabel(data.syncedAt, now)}
                 </span>
+
               </p>
               <Button
                 type="button"
