@@ -83,6 +83,33 @@ farmer can retrieve or re-book crates.
 
 First-come, first-served. Capacity is only held for 45 minutes; a no-show
 releases it back to the community automatically. No priority tiers, no queueing.
+The rule is stated in plain language under the locker list on Home so nobody has
+to guess why their crates were released.
+
+## 9a. Harvest slots are real capacity
+
+Morning (6–11 AM) and Afternoon (12–5 PM) are separate capacity pools. Both the
+UI and the database count crates per `(locker, slot)`, so a full morning does not
+block the afternoon, and the slot switch on Home changes real numbers rather than
+filtering a label. The Home summary answers "can I make the trip to the shed?" in
+one line: crates free and lockers with room for the selected slot.
+
+## 9b. Breakdowns and moving a reservation
+
+When a locker goes out of service, new reservations are blocked and existing ones
+are never deleted. A booking still awaiting drop-off shows "Your locker is
+unavailable", the reported fault, and a **Move reservation** action listing
+lockers with enough room in the same slot ("Locker B-01 · 8 crates available ·
+0.5 °C · SAFE"). If nothing fits, the app says so honestly instead of failing
+silently. The move keeps the same verification code, records the original locker
+(`moved_from_locker_id`), and writes an Activity event. Crates already in storage
+stay put; the card explains that they are safe.
+
+## 9c. Notifications
+
+In-app only — no SMS, no push, no paid messaging. Toasts confirm reservations,
+moves, drop-off, pickup, expiry, incident reports, and connection changes.
+
 
 ## 10. Deliberately not built
 
