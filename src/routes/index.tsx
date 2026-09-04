@@ -824,7 +824,7 @@ function PickupContent({
         </SheetTitle>
         <SheetDescription>
           {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
-          {RESERVATION_LABEL[reservation.status]}
+          {DISPLAY_STATUS_LABEL[displayStatus(reservation)]}
         </SheetDescription>
       </SheetHeader>
 
