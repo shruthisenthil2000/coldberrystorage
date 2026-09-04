@@ -342,7 +342,7 @@ function ReserveSheet({
         </div>
       </SheetHeader>
 
-      <div className="max-h-[70vh] space-y-5 overflow-y-auto px-4 pb-6">
+      <div className="max-h-[70vh] space-y-5 overflow-y-auto px-4 pt-2 pb-6">
         <div>
           <p className="stat-label mb-2">Your farm</p>
           <div className="grid max-h-44 gap-2.5 overflow-y-auto pr-1">
