@@ -692,7 +692,7 @@ function DropOffContent({
             />
           </div>
           {error && (
-            <p role="alert" className="text-sm font-semibold text-destructive">
+            <p role="alert" className="text-base font-bold text-destructive">
               {error}
             </p>
           )}
@@ -834,7 +834,7 @@ function PickupContent({
           />
         </div>
         {error && (
-          <p role="alert" className="text-sm font-semibold text-destructive">
+          <p role="alert" className="text-base font-bold text-destructive">
             {error}
           </p>
         )}
