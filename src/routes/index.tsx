@@ -1126,9 +1126,9 @@ function LockerCard({
             <p className="meta-text mt-0.5">{incidents[0].description}</p>
           )}
           <p className="meta-text mt-0.5">
-            Reservations unavailable
+            New reservations blocked
             {used > 0
-              ? ` · ${used} crate${used === 1 ? "" : "s"} still stored here`
+              ? ` · ${used} crate${used === 1 ? "" : "s"} still stored here — crates may need attention`
               : ""}
             .
           </p>
@@ -1138,13 +1138,13 @@ function LockerCard({
           <div className="mt-2.5 flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-sm font-medium">
               {Number(locker.temperature).toFixed(1)} °C
-              <Chip tone={tempTone(tState)}>{tState}</Chip>
+              <Chip tone={tempTone(tState)}>{TEMP_LABEL[tState]}</Chip>
             </span>
             <span className="text-sm font-semibold tabular-nums">
-              {free}
+              {free}/{locker.capacity}
               <span className="text-muted-foreground">
                 {" "}
-                of {locker.capacity} free · {SLOT_LABEL[slot].toLowerCase()}
+                crates free · {SLOT_LABEL[slot].toLowerCase()}
               </span>
             </span>
           </div>
@@ -1181,13 +1181,18 @@ function LockerCard({
                 Reserve
               </Button>
             )}
-            {!open && used === 0 && (
-              <p className="panel-flat flex h-12 items-center justify-center text-sm font-medium text-muted-foreground shadow-none">
-                Full
-              </p>
+            {!open && (
+              <div className="panel-flat px-3 py-2.5 text-center shadow-none">
+                <p className="text-sm font-semibold">No crates available</p>
+                <p className="meta-text mt-0.5">
+                  Try another locker or the{" "}
+                  {SLOT_LABEL[slot === "MORNING" ? "AFTERNOON" : "MORNING"].toLowerCase()} slot.
+                </p>
+              </div>
             )}
           </>
         )}
+
 
         <div className={`grid gap-2 ${!down && used > 0 ? "grid-cols-2" : "grid-cols-1"}`}>
           {!down && used > 0 && (
