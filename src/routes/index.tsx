@@ -345,6 +345,19 @@ function ReserveSheet({
         </div>
 
         <div>
+          <p className="stat-label mb-2">Harvest date</p>
+          <div className="panel flex justify-center rounded-xl p-2">
+            <Calendar
+              mode="single"
+              selected={harvestDate}
+              onSelect={(d) => d && setHarvestDate(d)}
+              disabled={{ before: new Date(new Date().setHours(0, 0, 0, 0)) }}
+              className="p-2 pointer-events-auto"
+            />
+          </div>
+        </div>
+
+        <div>
           <p className="stat-label mb-2">Harvest slot</p>
           <div className="grid grid-cols-2 gap-2" role="group">
             {(["MORNING", "AFTERNOON"] as const).map((s) => (
@@ -481,6 +494,10 @@ function ReservationSheet({
                 <dd className="font-semibold">{r.crate_count}</dd>
                 <dt className="stat-label">Slot</dt>
                 <dd className="font-semibold">{SLOT_LABEL[r.slot as HarvestSlot] ?? r.slot}</dd>
+                <dt className="stat-label">Harvest day</dt>
+                <dd className="font-semibold">
+                  {format(new Date(`${r.harvest_date}T00:00:00`), "EEE d MMM")}
+                </dd>
                 <dt className="stat-label">Reserved</dt>
                 <dd className="font-semibold">{shortTime(r.reserved_at)}</dd>
                 {r.status === "RESERVED" && (
