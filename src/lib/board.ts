@@ -201,7 +201,8 @@ export function statusTone(status: LockerStatus): string {
     case "IN_STORAGE":
       return "tone-stored";
     case "MAINTENANCE":
-      return "tone-warn";
+      // Maintenance and breakdown both read as OUT OF SERVICE, so they share a colour.
+      return "tone-down";
     case "BREAKDOWN":
       return "tone-down";
   }
