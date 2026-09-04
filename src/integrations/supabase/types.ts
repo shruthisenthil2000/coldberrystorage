@@ -14,16 +14,183 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      farmers: {
+        Row: {
+          created_at: string
+          farm_name: string
+          id: string
+          name: string
+          phone: string | null
+        }
+        Insert: {
+          created_at?: string
+          farm_name: string
+          id?: string
+          name: string
+          phone?: string | null
+        }
+        Update: {
+          created_at?: string
+          farm_name?: string
+          id?: string
+          name?: string
+          phone?: string | null
+        }
+        Relationships: []
+      }
+      incidents: {
+        Row: {
+          description: string
+          id: string
+          locker_id: string
+          reported_at: string
+          status: Database["public"]["Enums"]["incident_status"]
+          type: Database["public"]["Enums"]["incident_type"]
+        }
+        Insert: {
+          description: string
+          id?: string
+          locker_id: string
+          reported_at?: string
+          status?: Database["public"]["Enums"]["incident_status"]
+          type: Database["public"]["Enums"]["incident_type"]
+        }
+        Update: {
+          description?: string
+          id?: string
+          locker_id?: string
+          reported_at?: string
+          status?: Database["public"]["Enums"]["incident_status"]
+          type?: Database["public"]["Enums"]["incident_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incidents_locker_id_fkey"
+            columns: ["locker_id"]
+            isOneToOne: false
+            referencedRelation: "lockers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lockers: {
+        Row: {
+          capacity: number
+          created_at: string
+          id: string
+          locker_number: string
+          status: Database["public"]["Enums"]["locker_status"]
+          temperature: number
+          zone: string
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          id?: string
+          locker_number: string
+          status?: Database["public"]["Enums"]["locker_status"]
+          temperature?: number
+          zone: string
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          id?: string
+          locker_number?: string
+          status?: Database["public"]["Enums"]["locker_status"]
+          temperature?: number
+          zone?: string
+        }
+        Relationships: []
+      }
+      reservations: {
+        Row: {
+          cancelled_at: string | null
+          check_in_deadline: string
+          checked_in_at: string | null
+          crate_count: number
+          dropoff_code: string
+          farmer_id: string
+          id: string
+          locker_id: string
+          picked_up_at: string | null
+          pickup_code: string
+          reserved_at: string
+          slot: string
+          status: Database["public"]["Enums"]["reservation_status"]
+        }
+        Insert: {
+          cancelled_at?: string | null
+          check_in_deadline: string
+          checked_in_at?: string | null
+          crate_count: number
+          dropoff_code?: string
+          farmer_id: string
+          id?: string
+          locker_id: string
+          picked_up_at?: string | null
+          pickup_code?: string
+          reserved_at?: string
+          slot: string
+          status?: Database["public"]["Enums"]["reservation_status"]
+        }
+        Update: {
+          cancelled_at?: string | null
+          check_in_deadline?: string
+          checked_in_at?: string | null
+          crate_count?: number
+          dropoff_code?: string
+          farmer_id?: string
+          id?: string
+          locker_id?: string
+          picked_up_at?: string | null
+          pickup_code?: string
+          reserved_at?: string
+          slot?: string
+          status?: Database["public"]["Enums"]["reservation_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reservations_locker_id_fkey"
+            columns: ["locker_id"]
+            isOneToOne: false
+            referencedRelation: "lockers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      locker_used_crates: {
+        Args: { _exclude?: string; _locker_id: string }
+        Returns: number
+      }
     }
     Enums: {
-      [_ in never]: never
+      incident_status: "OPEN" | "INVESTIGATING" | "RESOLVED"
+      incident_type: "TEMPERATURE" | "POWER" | "DOOR" | "SPOILAGE" | "OTHER"
+      locker_status:
+        | "AVAILABLE"
+        | "RESERVED"
+        | "IN_STORAGE"
+        | "MAINTENANCE"
+        | "BREAKDOWN"
+      reservation_status:
+        | "RESERVED"
+        | "CHECKED_IN"
+        | "STORED"
+        | "PICKED_UP"
+        | "CANCELLED"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +317,23 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      incident_status: ["OPEN", "INVESTIGATING", "RESOLVED"],
+      incident_type: ["TEMPERATURE", "POWER", "DOOR", "SPOILAGE", "OTHER"],
+      locker_status: [
+        "AVAILABLE",
+        "RESERVED",
+        "IN_STORAGE",
+        "MAINTENANCE",
+        "BREAKDOWN",
+      ],
+      reservation_status: [
+        "RESERVED",
+        "CHECKED_IN",
+        "STORED",
+        "PICKED_UP",
+        "CANCELLED",
+      ],
+    },
   },
 } as const
