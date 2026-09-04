@@ -1622,7 +1622,15 @@ function BookingCard({
               onBack={() => setSheet(null)}
               onClose={() => setSheet(null)}
             />
+          ) : sheet === "move" ? (
+            <MoveContent
+              locker={locker}
+              reservation={reservation}
+              data={data}
+              onClose={() => setSheet(null)}
+            />
           ) : null}
+
         </Sheet>
       )}
     </article>
