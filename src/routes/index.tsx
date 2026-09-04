@@ -1104,7 +1104,20 @@ function LockerCard({
 
   return (
     <article
-      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(locker.status).replace("tone-", "edge-")}`}
+      role={open ? "button" : undefined}
+      tabIndex={open ? 0 : undefined}
+      onClick={open ? () => setSheet("reserve") : undefined}
+      onKeyDown={
+        open
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSheet("reserve");
+              }
+            }
+          : undefined
+      }
+      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(locker.status).replace("tone-", "edge-")} ${open ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
