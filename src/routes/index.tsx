@@ -980,6 +980,46 @@ function ReportIssueContent({
 }
 
 
+/** Shown instead of the booking form when the device has no connection. */
+function OfflineNotice({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const online = useOnline();
+  const [retrying, setRetrying] = useState(false);
+
+  return (
+    <SheetContent side="bottom" className="rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="font-display text-2xl">You're offline</SheetTitle>
+        <SheetDescription>
+          Locker information is available from your last sync.
+        </SheetDescription>
+      </SheetHeader>
+      <div className="space-y-3 px-4 pb-6">
+        <p className="rounded-lg bg-muted p-3 text-sm">
+          New reservations require a connection to prevent double-booking.
+        </p>
+        <Button
+          className="h-14 w-full text-base font-bold"
+          disabled={retrying}
+          onClick={async () => {
+            setRetrying(true);
+            await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+            setRetrying(false);
+            if (online) {
+              toast.success("Back online — locker information refreshed.");
+              onClose();
+            } else {
+              toast.error("Still offline. Showing your last synced information.");
+            }
+          }}
+        >
+          {retrying ? "Checking…" : "Retry connection"}
+        </Button>
+      </div>
+    </SheetContent>
+  );
+}
+
 function LockerCard({
   locker,
   data,
@@ -993,7 +1033,9 @@ function LockerCard({
   const open = isReservable(locker, data.reservations);
   const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
+  const online = useOnline();
   const [sheet, setSheet] = useState<"reserve" | "view" | "report" | null>(null);
+
 
   const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
 
