@@ -495,6 +495,8 @@ function Board() {
 
       {data && (
         <>
+          <LastReservationCard data={data} />
+
           <section className="mt-5 grid grid-cols-5 gap-1.5 max-sm:grid-cols-3">
             {(
               [
