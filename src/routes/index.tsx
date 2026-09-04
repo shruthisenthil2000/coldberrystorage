@@ -1,5 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Wifi, WifiOff } from "lucide-react";
+import { toast } from "sonner";
+import { zodValidator } from "@tanstack/zod-adapter";
+import { z } from "zod";
+
+import { supabase } from "@/integrations/supabase/client";
 import {
   boardQuery,
   freeCrates,
@@ -7,34 +14,76 @@ import {
   usedCrates,
   LOCKER_LABEL,
   RESERVATION_LABEL,
+  SLOT_LABEL,
   reservationTone,
   shortTime,
+  slotDeadline,
   statusTone,
+  tempState,
+  tempTone,
   type BoardData,
+  type HarvestSlot,
   type Locker,
+  type Reservation,
 } from "@/lib/board";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { useSyncExternalStore } from "react";
+
+const searchSchema = z.object({
+  slot: z.enum(["MORNING", "AFTERNOON"]).default("MORNING"),
+});
 
 export const Route = createFileRoute("/")({
+  validateSearch: zodValidator(searchSchema),
   head: () => ({
     meta: [
-      { title: "Cold Locker Board — Shared Berry Cold Storage" },
+      { title: "ColdStore — Shared Berry Cold Storage Board" },
       {
         name: "description",
         content:
-          "Live board of shared cold-storage lockers for berry farmers: crate space, bookings, pickup codes and breakdown reports.",
+          "Live board of shared cold-storage lockers for berry farmers: see which lockers can take your berries right now, crate space, temperatures and codes.",
       },
-      { property: "og:title", content: "Cold Locker Board — Shared Berry Cold Storage" },
+      { property: "og:title", content: "ColdStore — Shared Berry Cold Storage Board" },
       {
         property: "og:description",
         content:
-          "Live board of shared cold-storage lockers for berry farmers: crate space, bookings, pickup codes and breakdown reports.",
+          "Live board of shared cold-storage lockers for berry farmers: see which lockers can take your berries right now, crate space, temperatures and codes.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Board,
+  errorComponent: ({ error }) => (
+    <main className="mx-auto min-h-screen w-full max-w-3xl px-4 pt-10">
+      <p role="alert" className="font-semibold text-destructive">
+        The board couldn't load. {error.message}
+      </p>
+    </main>
+  ),
 });
+
+function useOnline(): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("online", cb);
+      window.addEventListener("offline", cb);
+      return () => {
+        window.removeEventListener("online", cb);
+        window.removeEventListener("offline", cb);
+      };
+    },
+    () => navigator.onLine,
+    () => true,
+  );
+}
 
 function Chip({ tone, children }: { tone: string; children: React.ReactNode }) {
   return <span className={`status-chip ${tone}`}>{children}</span>;
@@ -52,21 +101,188 @@ function CapacityBar({ used, capacity }: { used: number; capacity: number }) {
   );
 }
 
-function LockerCard({ locker, data }: { locker: Locker; data: BoardData }) {
-  const used = usedCrates(locker.id, data.reservations);
+function ReserveSheet({
+  locker,
+  slot,
+  data,
+  onClose,
+}: {
+  locker: Locker;
+  slot: HarvestSlot;
+  data: BoardData;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
   const free = freeCrates(locker, data.reservations);
-  const open = isReservable(locker, data.reservations);
-  const active = data.reservations.filter(
-    (r) =>
-      r.locker_id === locker.id && ["RESERVED", "CHECKED_IN", "STORED"].includes(r.status),
+  const [farmerId, setFarmerId] = useState(data.farmers[0]?.id ?? "");
+  const [crates, setCrates] = useState(1);
+  const [saving, setSaving] = useState(false);
+
+  async function reserve() {
+    if (!farmerId) return;
+    setSaving(true);
+    const { error } = await supabase.from("reservations").insert({
+      farmer_id: farmerId,
+      locker_id: locker.id,
+      slot,
+      crate_count: crates,
+      check_in_deadline: slotDeadline(slot),
+    });
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Locker ${locker.locker_number} booked for the ${SLOT_LABEL[slot].toLowerCase()} slot`);
+    await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+    onClose();
+  }
+
+  return (
+    <SheetContent side="bottom" className="rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="font-display text-2xl">
+          Book locker {locker.locker_number} · {SLOT_LABEL[slot]}
+        </SheetTitle>
+        <SheetDescription>
+          {free} crate{free === 1 ? "" : "s"} free in this locker.
+        </SheetDescription>
+      </SheetHeader>
+
+      <div className="space-y-5 px-4 pb-6">
+        <div>
+          <p className="stat-label mb-2">Your farm</p>
+          <div className="grid gap-2">
+            {data.farmers.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setFarmerId(f.id)}
+                className={`panel min-h-12 px-4 text-left text-base font-semibold ${
+                  farmerId === f.id ? "ring-2 ring-primary" : ""
+                }`}
+              >
+                {f.farm_name}
+                <span className="ml-2 font-normal text-muted-foreground">{f.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="stat-label mb-2">Crates</p>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 w-12 text-2xl"
+              disabled={crates <= 1}
+              onClick={() => setCrates((c) => Math.max(1, c - 1))}
+            >
+              −
+            </Button>
+            <span className="font-display w-10 text-center text-3xl font-bold">{crates}</span>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 w-12 text-2xl"
+              disabled={crates >= free}
+              onClick={() => setCrates((c) => Math.min(free, c + 1))}
+            >
+              +
+            </Button>
+            <span className="text-sm text-muted-foreground">of {free} free</span>
+          </div>
+        </div>
+
+        <Button
+          type="button"
+          className="min-h-14 w-full text-lg font-bold"
+          disabled={saving || !farmerId}
+          onClick={reserve}
+        >
+          {saving ? "Booking…" : "Confirm booking"}
+        </Button>
+      </div>
+    </SheetContent>
   );
+}
+
+function ReservationSheet({
+  locker,
+  data,
+  onClose,
+}: {
+  locker: Locker;
+  data: BoardData;
+  onClose: () => void;
+}) {
+  const active = data.reservations.filter(
+    (r) => r.locker_id === locker.id && ["RESERVED", "CHECKED_IN", "STORED"].includes(r.status),
+  );
+  const storing = locker.status === "IN_STORAGE";
+
+  return (
+    <SheetContent side="bottom" className="rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="font-display text-2xl">
+          Locker {locker.locker_number} · {storing ? "Storage" : "Booking"}
+        </SheetTitle>
+        <SheetDescription>{LOCKER_LABEL[locker.status]}</SheetDescription>
+      </SheetHeader>
+      <ul className="space-y-3 px-4 pb-6">
+        {active.map((r) => {
+          const farmer = data.farmers.find((f) => f.id === r.farmer_id);
+          return (
+            <li key={r.id} className="panel p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-base font-bold">{farmer?.farm_name ?? "Unknown farm"}</span>
+                <Chip tone={reservationTone(r.status)}>{RESERVATION_LABEL[r.status]}</Chip>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {r.crate_count} crates · {SLOT_LABEL[r.slot as HarvestSlot] ?? r.slot} slot
+              </p>
+              {r.status === "RESERVED" ? (
+                <p className="mt-2 text-base font-semibold">
+                  Drop-off code <span className="font-display text-xl tracking-widest">{r.dropoff_code}</span>
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    by {shortTime(r.check_in_deadline)}
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-2 text-base font-semibold">
+                  Pickup code <span className="font-display text-xl tracking-widest">{r.pickup_code}</span>
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </SheetContent>
+  );
+}
+
+function LockerCard({
+  locker,
+  data,
+  slot,
+}: {
+  locker: Locker;
+  data: BoardData;
+  slot: HarvestSlot;
+}) {
+  const used = usedCrates(locker.id, data.reservations);
+  const open = isReservable(locker, data.reservations);
   const incidents = data.incidents.filter(
     (i) => i.locker_id === locker.id && i.status !== "RESOLVED",
   );
-  const tempOff = Number(locker.temperature) > 5;
+  const tState = tempState(Number(locker.temperature));
+  const [sheet, setSheet] = useState<"reserve" | "view" | null>(null);
+
+  const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
 
   return (
-    <article className="panel p-4">
+    <article className="panel flex flex-col p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="font-display text-3xl leading-none font-bold tracking-tight">
@@ -87,40 +303,14 @@ function LockerCard({ locker, data }: { locker: Locker; data: BoardData }) {
       <div className="mt-1.5">
         <CapacityBar used={used} capacity={locker.capacity} />
       </div>
-      <p className="mt-2 text-sm font-semibold">
-        {open ? `${free} crate${free === 1 ? "" : "s"} free` : "Not bookable"}
-      </p>
 
-      <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm">
+      <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
         <span className="stat-label">Temp</span>
-        <span className={tempOff ? "font-bold text-destructive" : "font-bold"}>
-          {Number(locker.temperature).toFixed(1)} °C
+        <span className="flex items-center gap-2">
+          <span className="font-bold">{Number(locker.temperature).toFixed(1)} °C</span>
+          <Chip tone={tempTone(tState)}>{tState}</Chip>
         </span>
       </div>
-
-      {active.length > 0 && (
-        <ul className="mt-3 space-y-2 border-t border-border pt-3">
-          {active.map((r) => {
-            const farmer = data.farmers.find((f) => f.id === r.farmer_id);
-            return (
-              <li key={r.id} className="text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold">{farmer?.farm_name ?? "Unknown farm"}</span>
-                  <Chip tone={reservationTone(r.status)}>{RESERVATION_LABEL[r.status]}</Chip>
-                </div>
-                <p className="text-muted-foreground">
-                  {r.crate_count} crates · {r.slot}
-                </p>
-                <p className="text-muted-foreground">
-                  {r.status === "RESERVED"
-                    ? `Drop-off code ${r.dropoff_code} · by ${shortTime(r.check_in_deadline)}`
-                    : `Pickup code ${r.pickup_code}`}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      )}
 
       {incidents.length > 0 && (
         <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm">
@@ -131,20 +321,67 @@ function LockerCard({ locker, data }: { locker: Locker; data: BoardData }) {
           ))}
         </div>
       )}
+
+      <div className="mt-4 flex-1" />
+
+      {down ? (
+        <p className="panel tone-muted min-h-12 rounded-md text-center text-sm leading-12 font-bold uppercase">
+          Not available
+        </p>
+      ) : open ? (
+        <Button className="min-h-12 w-full text-base font-bold" onClick={() => setSheet("reserve")}>
+          Reserve
+        </Button>
+      ) : (
+        <Button
+          variant="secondary"
+          className="min-h-12 w-full text-base font-bold"
+          onClick={() => setSheet("view")}
+        >
+          {locker.status === "IN_STORAGE" ? "View storage" : "View reservation"}
+        </Button>
+      )}
+
+      <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
+        {sheet === "reserve" ? (
+          <ReserveSheet locker={locker} slot={slot} data={data} onClose={() => setSheet(null)} />
+        ) : sheet === "view" ? (
+          <ReservationSheet locker={locker} data={data} onClose={() => setSheet(null)} />
+        ) : null}
+      </Sheet>
     </article>
   );
 }
 
 function Board() {
+  const { slot } = Route.useSearch();
+  const navigate = useNavigate({ from: "/" });
   const { data, isPending, error } = useQuery(boardQuery);
+  const online = useOnline();
+
+  const today = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-3xl px-4 pt-5 pb-16">
-      <header>
-        <p className="stat-label">Shared cold storage</p>
-        <h1 className="font-display text-4xl leading-none font-bold tracking-tight">
-          Locker Board
-        </h1>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <p className="stat-label">ColdStore · Community Cold Storage</p>
+          <h1 className="font-display text-4xl leading-none font-bold tracking-tight">
+            Locker Board
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">{today}</p>
+        </div>
+        <span
+          className={`status-chip ${online ? "tone-free" : "tone-down"}`}
+          role="status"
+        >
+          {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
+          {online ? "Online" : "Offline"}
+        </span>
       </header>
 
       {isPending && <p className="mt-8 text-muted-foreground">Loading the board…</p>}
@@ -156,37 +393,59 @@ function Board() {
 
       {data && (
         <>
-          <section className="mt-4 grid grid-cols-3 gap-2">
+          <section className="mt-5 grid grid-cols-5 gap-1.5 max-sm:grid-cols-3">
             {(
               [
-                ["Free lockers", data.lockers.filter((l) => isReservable(l, data.reservations)).length],
+                ["Total", data.lockers.length, ""],
+                ["Available", data.lockers.filter((l) => l.status === "AVAILABLE").length, "tone-free"],
+                ["Booked", data.lockers.filter((l) => l.status === "RESERVED").length, "tone-booked"],
+                ["In storage", data.lockers.filter((l) => l.status === "IN_STORAGE").length, "tone-stored"],
                 [
-                  "Crates free",
-                  data.lockers.reduce(
-                    (s, l) => s + (isReservable(l, data.reservations) ? freeCrates(l, data.reservations) : 0),
-                    0,
-                  ),
+                  "Down",
+                  data.lockers.filter(
+                    (l) => l.status === "MAINTENANCE" || l.status === "BREAKDOWN",
+                  ).length,
+                  "tone-down",
                 ],
-                ["Open issues", data.incidents.filter((i) => i.status !== "RESOLVED").length],
               ] as const
-            ).map(([label, value]) => (
-              <div key={label} className="panel p-3">
+            ).map(([label, value, tone]) => (
+              <div key={label} className={`panel p-2.5 ${tone ? "" : ""}`}>
                 <p className="stat-label">{label}</p>
-                <p className="font-display text-3xl font-bold">{value}</p>
+                <p className={`font-display text-3xl font-bold ${tone ? "" : ""}`}>{value}</p>
+                {tone && <span className={`mt-1 block h-1 rounded-full ${tone}`} />}
               </div>
             ))}
           </section>
 
-          <section className="mt-4 grid gap-3 sm:grid-cols-2">
+          <section className="mt-5" aria-label="Harvest slot">
+            <p className="stat-label mb-2">Harvest slot</p>
+            <div className="grid grid-cols-2 gap-2" role="group">
+              {(["MORNING", "AFTERNOON"] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  aria-pressed={slot === s}
+                  onClick={() => navigate({ search: { slot: s }, replace: true })}
+                  className={`panel min-h-14 text-lg font-bold ${
+                    slot === s ? "ring-2 ring-primary bg-primary text-primary-foreground" : ""
+                  }`}
+                >
+                  {SLOT_LABEL[s]}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="mt-5 grid gap-3 sm:grid-cols-2">
             {data.lockers.map((locker) => (
-              <LockerCard key={locker.id} locker={locker} data={data} />
+              <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
             ))}
           </section>
 
           <section className="mt-8">
             <h2 className="font-display text-2xl font-bold tracking-tight">Recent bookings</h2>
             <ul className="mt-3 space-y-2">
-              {data.reservations.slice(0, 8).map((r) => {
+              {data.reservations.slice(0, 8).map((r: Reservation) => {
                 const farmer = data.farmers.find((f) => f.id === r.farmer_id);
                 const locker = data.lockers.find((l) => l.id === r.locker_id);
                 return (
