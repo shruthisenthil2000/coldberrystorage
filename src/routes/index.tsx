@@ -898,15 +898,18 @@ function ReportIssueContent({
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
           <SheetTitle className="text-xl font-semibold">✓ Issue reported</SheetTitle>
-          <SheetDescription>Locker {done} has been flagged.</SheetDescription>
+          <SheetDescription>
+            {option?.blocks
+              ? `Locker ${done} has been marked out of service.`
+              : `Thanks — the issue on locker ${done} has been logged.`}
+          </SheetDescription>
         </SheetHeader>
         <div className="space-y-3 px-4 pb-6">
-          {option?.blocks && (
-            <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
-              Locker {done} will not accept new reservations until the problem is fixed. Crates
-              already stored there stay where they are.
-            </p>
-          )}
+          <p className="rounded-md border border-border bg-muted p-3 text-sm">
+            {option?.blocks
+              ? "No new crates can be booked into this locker until it is fixed. Crates already stored there stay where they are."
+              : "The locker stays available. The team will look into it."}
+          </p>
           <Button type="button" className="pressable h-12 w-full rounded-xl text-[15px] font-semibold" onClick={onClose}>
             Done
           </Button>
