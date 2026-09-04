@@ -1511,10 +1511,10 @@ function BookingCard({
         </p>
       )}
 
-      {locker && reservation.status === "RESERVED" && (
+      {locker && reservation.status === "RESERVED" && remaining && (
         <Button
           type="button"
-          className="pressable btn-gradient mt-3 h-12 w-full rounded-xl text-[15px] font-semibold"
+          className="pressable btn-gradient mt-3 h-14 w-full rounded-xl text-base font-semibold"
           onClick={() => setSheet("dropoff")}
         >
           Check in / Drop off
@@ -1523,7 +1523,7 @@ function BookingCard({
       {locker && (reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
         <Button
           type="button"
-          className="pressable mt-3 h-12 w-full rounded-xl text-[15px] font-semibold"
+          className="pressable mt-3 h-14 w-full rounded-xl text-base font-semibold"
           onClick={() => setSheet("pickup")}
         >
           Pick up crates
