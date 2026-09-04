@@ -371,3 +371,7 @@
     }
   }
 }
+
+@layer components {
+  .edge-muted { box-shadow: inset 4px 0 0 var(--muted-foreground), var(--shadow-card); }
+}

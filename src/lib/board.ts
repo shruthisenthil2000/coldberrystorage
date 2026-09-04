@@ -296,3 +296,146 @@ export async function reportIncident(input: {
 
   return data;
 }
+
+/* ------------------------------------------------- reservation presentation */
+
+export type DisplayStatus =
+  | "RESERVED"
+  | "CHECK_IN_REQUIRED"
+  | "IN_STORAGE"
+  | "COMPLETED"
+  | "EXPIRED"
+  | "CANCELLED";
+
+export const DISPLAY_STATUS_LABEL: Record<DisplayStatus, string> = {
+  RESERVED: "Reserved",
+  CHECK_IN_REQUIRED: "Check-in required",
+  IN_STORAGE: "In storage",
+  COMPLETED: "Completed",
+  EXPIRED: "Expired",
+  CANCELLED: "Cancelled",
+};
+
+/** Minutes left on the check-in window before a reservation is treated as urgent. */
+const URGENT_MINUTES = 15;
+
+export function displayStatus(r: Reservation, now: number = Date.now()): DisplayStatus {
+  switch (r.status) {
+    case "RESERVED": {
+      const left = new Date(r.check_in_deadline).getTime() - now;
+      if (left <= 0) return "EXPIRED";
+      return left <= URGENT_MINUTES * 60_000 ? "CHECK_IN_REQUIRED" : "RESERVED";
+    }
+    case "CHECKED_IN":
+    case "STORED":
+      return "IN_STORAGE";
+    case "PICKED_UP":
+      return "COMPLETED";
+    case "CANCELLED":
+      return r.checked_in_at ? "CANCELLED" : "EXPIRED";
+  }
+}
+
+export function displayTone(status: DisplayStatus): string {
+  switch (status) {
+    case "RESERVED":
+      return "tone-booked";
+    case "CHECK_IN_REQUIRED":
+      return "tone-warn";
+    case "IN_STORAGE":
+      return "tone-stored";
+    case "COMPLETED":
+      return "tone-free";
+    case "EXPIRED":
+      return "tone-down";
+    case "CANCELLED":
+      return "tone-muted";
+  }
+}
+
+/** "32:14" style countdown; returns null once the deadline has passed. */
+export function formatCountdown(deadline: string, now: number = Date.now()): string | null {
+  const ms = new Date(deadline).getTime() - now;
+  if (ms <= 0) return null;
+  const total = Math.floor(ms / 1000);
+  const mm = Math.floor(total / 60);
+  const ss = total % 60;
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+
+/* -------------------------------------------------------------- activity log */
+
+export type ActivityEvent = {
+  id: string;
+  at: string;
+  title: string;
+  detail: string;
+  tone: string;
+};
+
+/**
+ * Derive the activity feed from the recorded state timestamps. Every
+ * transition the app performs writes a timestamp, so no separate event table
+ * is needed for the prototype.
+ */
+export function buildActivity(data: BoardData, now: number = Date.now()): ActivityEvent[] {
+  const lockerOf = (id: string) =>
+    data.lockers.find((l) => l.id === id)?.locker_number ?? "—";
+  const farmerOf = (id: string) => data.farmers.find((f) => f.id === id)?.farm_name ?? "A farm";
+  const events: ActivityEvent[] = [];
+
+  for (const r of data.reservations) {
+    const crates = `${r.crate_count} crate${r.crate_count === 1 ? "" : "s"}`;
+    events.push({
+      id: `${r.id}-created`,
+      at: r.reserved_at,
+      title: "Reservation created",
+      detail: `Locker ${lockerOf(r.locker_id)} · ${crates} · ${farmerOf(r.farmer_id)}`,
+      tone: "tone-booked",
+    });
+    if (r.checked_in_at) {
+      events.push({
+        id: `${r.id}-checkin`,
+        at: r.checked_in_at,
+        title: "Drop-off confirmed",
+        detail: `Locker ${lockerOf(r.locker_id)} · ${crates} moved into storage`,
+        tone: "tone-stored",
+      });
+    }
+    if (r.picked_up_at) {
+      events.push({
+        id: `${r.id}-pickup`,
+        at: r.picked_up_at,
+        title: "Pickup completed",
+        detail: `Locker ${lockerOf(r.locker_id)} · ${crates} released`,
+        tone: "tone-free",
+      });
+    }
+    if (r.cancelled_at) {
+      const expired = !r.checked_in_at;
+      events.push({
+        id: `${r.id}-cancel`,
+        at: r.cancelled_at,
+        title: expired ? "Reservation expired" : "Reservation cancelled",
+        detail: expired
+          ? `Locker ${lockerOf(r.locker_id)} · ${crates} released back to community storage`
+          : `Locker ${lockerOf(r.locker_id)} · ${crates}`,
+        tone: expired ? "tone-down" : "tone-muted",
+      });
+    }
+  }
+
+  for (const i of data.incidents) {
+    events.push({
+      id: `${i.id}-incident`,
+      at: i.reported_at,
+      title: i.status === "RESOLVED" ? "Locker returned to service" : "Locker reported",
+      detail: `Locker ${lockerOf(i.locker_id)} · ${INCIDENT_LABEL[i.type]}${i.description ? ` — ${i.description}` : ""}`,
+      tone: i.status === "RESOLVED" ? "tone-free" : "tone-down",
+    });
+  }
+
+  return events
+    .filter((e) => new Date(e.at).getTime() <= now + 60_000)
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+}
