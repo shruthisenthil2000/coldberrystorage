@@ -111,6 +111,7 @@ export type Database = {
           crate_count: number
           dropoff_code: string
           farmer_id: string
+          harvest_date: string
           id: string
           locker_id: string
           moved_at: string | null
@@ -128,6 +129,7 @@ export type Database = {
           crate_count: number
           dropoff_code?: string
           farmer_id: string
+          harvest_date?: string
           id?: string
           locker_id: string
           moved_at?: string | null
@@ -145,6 +147,7 @@ export type Database = {
           crate_count?: number
           dropoff_code?: string
           farmer_id?: string
+          harvest_date?: string
           id?: string
           locker_id?: string
           moved_at?: string | null

@@ -53,6 +53,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
 import { PhoneShell } from "@/components/PhoneShell";
 import { useTheme } from "@/lib/theme";
 import { useSyncExternalStore } from "react";
@@ -139,6 +141,7 @@ function ReserveSheet({
   const [liveFreeCrates, setLiveFreeCrates] = useState<number | null>(null);
   const [farmerId, setFarmerId] = useState(data.farmers[0]?.id ?? "");
   const [pickedSlot, setPickedSlot] = useState<HarvestSlot>(slot);
+  const [harvestDate, setHarvestDate] = useState<Date>(new Date());
   // Capacity is per harvest slot, so the numbers follow the chosen slot.
   const free = liveFreeCrates ?? freeCrates(locker, data.reservations, pickedSlot);
   const [crates, setCrates] = useState(1);
@@ -199,6 +202,7 @@ function ReserveSheet({
         farmer_id: farmerId,
         locker_id: locker.id,
         slot: pickedSlot,
+        harvest_date: format(harvestDate, "yyyy-MM-dd"),
         crate_count: crates,
         check_in_deadline: checkInDeadline(),
       })
@@ -281,7 +285,8 @@ function ReserveSheet({
           <SheetTitle className="text-xl font-semibold">✓ Locker reserved</SheetTitle>
           <SheetDescription>
             {locker.locker_number} · {SLOT_LABEL[done.slot as HarvestSlot] ?? done.slot} ·{" "}
-            {done.crate_count} crate{done.crate_count === 1 ? "" : "s"}
+            {done.crate_count} crate{done.crate_count === 1 ? "" : "s"} ·{" "}
+            {format(harvestDate, "EEE d MMM")}
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-4 px-4 pb-6">
@@ -319,7 +324,7 @@ function ReserveSheet({
 
       </SheetHeader>
 
-      <div className="space-y-5 px-4 pb-6">
+      <div className="max-h-[70vh] space-y-5 overflow-y-auto px-4 pb-6">
         <div>
           <p className="stat-label mb-2">Your farm</p>
           <div className="grid max-h-40 gap-2 overflow-y-auto pr-1">
@@ -336,6 +341,19 @@ function ReserveSheet({
                 <span className="ml-2 font-normal text-muted-foreground">{f.name}</span>
               </button>
             ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="stat-label mb-2">Harvest date</p>
+          <div className="panel flex justify-center rounded-xl p-2">
+            <Calendar
+              mode="single"
+              selected={harvestDate}
+              onSelect={(d) => d && setHarvestDate(d)}
+              disabled={{ before: new Date(new Date().setHours(0, 0, 0, 0)) }}
+              className="p-2 pointer-events-auto"
+            />
           </div>
         </div>
 
@@ -476,6 +494,10 @@ function ReservationSheet({
                 <dd className="font-semibold">{r.crate_count}</dd>
                 <dt className="stat-label">Slot</dt>
                 <dd className="font-semibold">{SLOT_LABEL[r.slot as HarvestSlot] ?? r.slot}</dd>
+                <dt className="stat-label">Harvest day</dt>
+                <dd className="font-semibold">
+                  {format(new Date(`${r.harvest_date}T00:00:00`), "EEE d MMM")}
+                </dd>
                 <dt className="stat-label">Reserved</dt>
                 <dd className="font-semibold">{shortTime(r.reserved_at)}</dd>
                 {r.status === "RESERVED" && (

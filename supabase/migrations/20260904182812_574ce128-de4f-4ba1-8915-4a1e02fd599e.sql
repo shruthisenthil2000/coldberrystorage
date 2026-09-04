@@ -1,0 +1,2 @@
+ALTER TABLE public.reservations ADD COLUMN IF NOT EXISTS harvest_date date NOT NULL DEFAULT current_date;
+UPDATE public.reservations SET harvest_date = (reserved_at AT TIME ZONE 'UTC')::date WHERE harvest_date IS NULL;
