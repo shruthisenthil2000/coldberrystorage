@@ -312,14 +312,16 @@ export type IncidentOption = {
    * locker bookable (minor issues are logged only).
    */
   blocks: LockerStatus | null;
+  /** Color cue: caution = blocks maintenance, critical = blocks booking, minor = logged only. */
+  tone: "caution" | "critical" | "minor";
 };
 
 export const INCIDENT_OPTIONS: IncidentOption[] = [
-  { type: "DOOR", label: "Door left open", blocks: "MAINTENANCE" },
-  { type: "POWER", label: "Cooling failure", blocks: "BREAKDOWN" },
-  { type: "TEMPERATURE", label: "Temperature too high", blocks: "BREAKDOWN" },
-  { type: "SPOILAGE", label: "Locker damaged", blocks: "BREAKDOWN" },
-  { type: "OTHER", label: "Other", blocks: null },
+  { type: "DOOR", label: "Door left open", blocks: "MAINTENANCE", tone: "caution" },
+  { type: "POWER", label: "Cooling failure", blocks: "BREAKDOWN", tone: "critical" },
+  { type: "TEMPERATURE", label: "Temperature too high", blocks: "BREAKDOWN", tone: "critical" },
+  { type: "SPOILAGE", label: "Locker damaged", blocks: "BREAKDOWN", tone: "critical" },
+  { type: "OTHER", label: "Other", blocks: null, tone: "minor" },
 ];
 
 export const INCIDENT_LABEL: Record<IncidentType, string> = {
