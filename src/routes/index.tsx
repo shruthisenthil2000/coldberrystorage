@@ -323,13 +323,23 @@ function ReserveSheet({
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="text-xl font-semibold">{locker.locker_number}</SheetTitle>
-        <SheetDescription>
-          {lockerSizeLabel(locker.capacity)} · {free} free in{" "}
-          {SLOT_LABEL[pickedSlot].toLowerCase()} · {Number(locker.temperature).toFixed(1)} °C ·{" "}
-          {tState}
-        </SheetDescription>
-
+        <div className="flex items-center gap-3">
+          <img
+            src={lockerSampleImg}
+            alt=""
+            width={640}
+            height={512}
+            className="h-14 w-14 shrink-0 rounded-xl border border-border object-cover"
+          />
+          <div className="min-w-0 text-left">
+            <SheetTitle className="text-xl font-semibold">{locker.locker_number}</SheetTitle>
+            <SheetDescription>
+              {lockerSizeLabel(locker.capacity)} · {free} free in{" "}
+              {SLOT_LABEL[pickedSlot].toLowerCase()} · {Number(locker.temperature).toFixed(1)} °C ·{" "}
+              {tState}
+            </SheetDescription>
+          </div>
+        </div>
       </SheetHeader>
 
       <div className="max-h-[70vh] space-y-5 overflow-y-auto px-4 pb-6">
