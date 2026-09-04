@@ -23,6 +23,11 @@ export type BoardData = {
 };
 
 export async function fetchBoard(): Promise<BoardData> {
+  // Lazy expiration: release RESERVED reservations whose 45-minute check-in
+  // deadline has passed BEFORE computing availability. Runs on every board
+  // load/refresh, so expired capacity is freed without any background job.
+  await expireOverdueReservations();
+
   const [lockers, farmers, reservations, incidents] = await Promise.all([
     supabase.from("lockers").select("*").order("locker_number"),
     supabase.from("farmers").select("*").order("name"),
