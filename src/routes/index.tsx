@@ -1592,7 +1592,14 @@ function LastReservationCard({ data }: { data: BoardData }) {
     };
   }, []);
 
-  const reservation = id ? data.reservations.find((r) => r.id === id) : undefined;
+  // Prefer the booking made on this device; otherwise surface the newest live
+  // booking so the board always answers "what do I do next?".
+  const saved = id ? data.reservations.find((r) => r.id === id) : undefined;
+  const reservation =
+    saved ??
+    [...data.reservations]
+      .filter((r) => ACTIVE_RESERVATION_STATUSES.includes(r.status))
+      .sort((a, b) => new Date(b.reserved_at).getTime() - new Date(a.reserved_at).getTime())[0];
   if (!reservation) return null;
   if (reservation.status === "PICKED_UP") return null;
 
