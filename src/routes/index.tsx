@@ -1434,18 +1434,18 @@ function LastReservationCard({ data }: { data: BoardData }) {
   ) {
     return (
       <section
-        className="panel mt-5 border-2 border-destructive/50 p-4"
+        className="panel border-destructive/50 p-4"
         aria-label="Reservation expired"
       >
         <p className="stat-label">Reservation expired</p>
-        <p className="font-display text-2xl font-bold">Locker {locker?.locker_number ?? "—"}</p>
+        <p className="card-title mt-0.5">Locker {locker?.locker_number ?? "—"}</p>
         <p className="mt-2 text-sm text-muted-foreground">
           Locker {locker?.locker_number ?? "—"} was released because the crates were not checked in
           within {CHECK_IN_WINDOW_MINUTES} minutes.
         </p>
         <Button
           type="button"
-          className="mt-3 min-h-12 w-full text-base font-bold"
+          className="pressable mt-3 h-12 w-full rounded-xl text-[15px] font-semibold"
           onClick={() => {
             try {
               localStorage.removeItem(LAST_RESERVATION_KEY);
@@ -1464,31 +1464,35 @@ function LastReservationCard({ data }: { data: BoardData }) {
   if (reservation.status !== "RESERVED") return null;
 
   return (
-    <section className="panel mt-5 border-2 border-primary p-4" aria-label="Your reservation">
-      <p className="stat-label">✓ Locker reserved</p>
-      <p className="font-display text-2xl font-bold">
+    <section className="panel border-primary/60 p-4" aria-label="Your reservation">
+      <div className="flex items-center justify-between gap-3">
+        <p className="stat-label">Your reservation</p>
+        <Chip tone="tone-booked">Reserved</Chip>
+      </div>
+      <p className="card-title mt-1">
         Locker {locker?.locker_number ?? "—"} ·{" "}
         {SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot} ·{" "}
         {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"}
       </p>
-      <div className="mt-3 flex items-end justify-between gap-3">
-        <div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="panel-flat p-3">
           <p className="stat-label">Check in by</p>
-          <p className="font-display text-3xl font-bold">
+          <p className="text-xl font-semibold tabular-nums">
             {clockTime(reservation.check_in_deadline)}
           </p>
         </div>
-        <div className="text-right">
+        <div className="panel-flat p-3">
           <p className="stat-label">Drop-off code</p>
-          <p className="font-display text-2xl font-bold tracking-widest">
+          <p className="text-xl font-semibold tracking-[0.2em] tabular-nums">
             {reservation.dropoff_code}
           </p>
         </div>
       </div>
-      <p className="mt-2 text-sm text-muted-foreground">
+      <p className="meta-text mt-2">
         If you do not check in within {CHECK_IN_WINDOW_MINUTES} minutes, this reservation will
         automatically be released.
       </p>
     </section>
   );
 }
+
