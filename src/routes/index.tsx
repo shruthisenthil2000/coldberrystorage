@@ -210,7 +210,7 @@ function ReserveSheet({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
-          <SheetTitle className="font-display text-2xl">Not enough capacity</SheetTitle>
+          <SheetTitle className="text-xl font-semibold">Not enough capacity</SheetTitle>
           <SheetDescription>
             {shortfall === 0
               ? `Locker ${locker.locker_number} is full right now.`
@@ -249,7 +249,7 @@ function ReserveSheet({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
-          <SheetTitle className="font-display text-2xl">✓ Locker reserved</SheetTitle>
+          <SheetTitle className="text-xl font-semibold">✓ Locker reserved</SheetTitle>
           <SheetDescription>
             Locker {locker.locker_number} · {SLOT_LABEL[done.slot as HarvestSlot] ?? done.slot} ·{" "}
             {done.crate_count} crate{done.crate_count === 1 ? "" : "s"}
@@ -258,7 +258,7 @@ function ReserveSheet({
         <div className="space-y-4 px-4 pb-6">
           <div className="panel p-4">
             <p className="stat-label">Check in by</p>
-            <p className="font-display text-4xl font-bold">{clockTime(done.check_in_deadline)}</p>
+            <p className="text-3xl font-semibold tabular-nums">{clockTime(done.check_in_deadline)}</p>
             <p className="mt-2 text-sm text-muted-foreground">
               If you do not check in within {CHECK_IN_WINDOW_MINUTES} minutes, this reservation will
               automatically be released.
@@ -267,16 +267,16 @@ function ReserveSheet({
           <div className="grid grid-cols-2 gap-2">
             <div className="panel p-3">
               <p className="stat-label">Drop-off code</p>
-              <p className="font-display text-2xl font-bold tracking-widest">{done.dropoff_code}</p>
+              <p className="text-xl font-semibold tracking-[0.2em]">{done.dropoff_code}</p>
             </div>
             <div className="panel p-3">
               <p className="stat-label">Pickup code</p>
-              <p className="font-display text-2xl font-bold tracking-widest">{done.pickup_code}</p>
+              <p className="text-xl font-semibold tracking-[0.2em]">{done.pickup_code}</p>
             </div>
           </div>
           <Button
             type="button"
-            className="min-h-14 w-full text-lg font-bold"
+            className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
             onClick={() => setShowBooking(true)}
           >
             View reservation
@@ -289,7 +289,7 @@ function ReserveSheet({
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="font-display text-2xl">Locker {locker.locker_number}</SheetTitle>
+        <SheetTitle className="text-xl font-semibold">Locker {locker.locker_number}</SheetTitle>
         <SheetDescription>
           {free} / {locker.capacity} crates available · {Number(locker.temperature).toFixed(1)} °C ·{" "}
           {tState}
@@ -305,7 +305,7 @@ function ReserveSheet({
                 key={f.id}
                 type="button"
                 onClick={() => setFarmerId(f.id)}
-                className={`panel min-h-12 px-4 text-left text-base font-semibold ${
+                className={`panel pressable min-h-12 rounded-xl px-4 text-left text-[15px] font-medium ${
                   farmerId === f.id ? "ring-2 ring-primary" : ""
                 }`}
               >
@@ -325,7 +325,7 @@ function ReserveSheet({
                 type="button"
                 aria-pressed={pickedSlot === s}
                 onClick={() => setPickedSlot(s)}
-                className={`panel min-h-14 text-lg font-bold ${
+                className={`panel pressable min-h-[52px] rounded-xl text-[15px] font-semibold ${
                   pickedSlot === s ? "ring-2 ring-primary bg-primary text-primary-foreground" : ""
                 }`}
               >
@@ -341,18 +341,18 @@ function ReserveSheet({
             <Button
               type="button"
               variant="outline"
-              className="h-14 w-14 text-3xl"
+              className="pressable size-14 rounded-xl text-2xl"
               aria-label="One crate fewer"
               disabled={crates <= 1}
               onClick={() => setCrates((c) => Math.max(1, c - 1))}
             >
               −
             </Button>
-            <span className="font-display w-12 text-center text-4xl font-bold">{crates}</span>
+            <span className="w-14 text-center text-3xl font-semibold tabular-nums">{crates}</span>
             <Button
               type="button"
               variant="outline"
-              className="h-14 w-14 text-3xl"
+              className="pressable size-14 rounded-xl text-2xl"
               aria-label="One crate more"
               disabled={crates >= free}
               onClick={() => setCrates((c) => Math.min(free, c + 1))}
@@ -365,7 +365,7 @@ function ReserveSheet({
 
         <Button
           type="button"
-          className="min-h-14 w-full text-lg font-bold"
+          className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
           disabled={saving || !farmerId || crates <= 0 || crates > free}
           onClick={reserve}
         >
@@ -419,7 +419,7 @@ function ReservationSheet({
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="font-display text-2xl">
+        <SheetTitle className="text-xl font-semibold">
           Locker {locker.locker_number} · {storing ? "Storage" : "Booking"}
         </SheetTitle>
         <SheetDescription>{LOCKER_LABEL[locker.status]}</SheetDescription>
@@ -447,7 +447,7 @@ function ReservationSheet({
                     <dt className="stat-label">Check in by</dt>
                     <dd className="font-semibold">{shortTime(r.check_in_deadline)}</dd>
                     <dt className="stat-label">Drop-off code</dt>
-                    <dd className="font-display text-lg font-bold tracking-widest">
+                    <dd className="text-lg font-semibold tracking-[0.2em]">
                       {r.dropoff_code}
                     </dd>
                   </>
@@ -455,7 +455,7 @@ function ReservationSheet({
                 {r.status !== "RESERVED" && (
                   <>
                     <dt className="stat-label">Pickup code</dt>
-                    <dd className="font-display text-lg font-bold tracking-widest">
+                    <dd className="text-lg font-semibold tracking-[0.2em]">
                       {r.pickup_code}
                     </dd>
                   </>
@@ -470,7 +470,7 @@ function ReservationSheet({
                     </p>
                     <Button
                       type="button"
-                      className="min-h-12 w-full text-base font-bold"
+                      className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
                       onClick={onClose}
                     >
                       Book again
@@ -479,7 +479,7 @@ function ReservationSheet({
                 ) : (
                   <Button
                     type="button"
-                    className="mt-3 min-h-12 w-full text-base font-bold"
+                    className="mt-3 pressable h-12 w-full rounded-xl text-[15px] font-semibold"
                     onClick={() => setDropoff(r)}
                   >
                     Confirm drop-off
@@ -493,7 +493,7 @@ function ReservationSheet({
               {(r.status === "CHECKED_IN" || r.status === "STORED") && (
                 <Button
                   type="button"
-                  className="mt-3 min-h-12 w-full text-base font-bold"
+                  className="mt-3 pressable h-12 w-full rounded-xl text-[15px] font-semibold"
                   onClick={() => setPickup(r)}
                 >
                   Verify pickup
@@ -594,15 +594,15 @@ function DropOffContent({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <div className="space-y-4 px-4 pt-2 pb-6 text-center">
-          <p className="font-display text-3xl font-bold tracking-tight">✓ Drop-off confirmed</p>
+          <p className="text-2xl font-semibold">✓ Drop-off confirmed</p>
           <div className="panel p-4">
-            <p className="font-display text-2xl font-bold">Locker {locker.locker_number}</p>
+            <p className="text-xl font-semibold">Locker {locker.locker_number}</p>
             <p className="mt-1 text-lg font-semibold">
               {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">Crates are now stored.</p>
           </div>
-          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+          <Button type="button" className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold" onClick={onClose}>
             Done
           </Button>
         </div>
@@ -614,12 +614,12 @@ function DropOffContent({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <div className="space-y-4 px-4 pt-2 pb-6 text-center">
-          <p className="font-display text-3xl font-bold tracking-tight">Reservation expired</p>
+          <p className="text-2xl font-semibold">Reservation expired</p>
           <p className="text-base text-muted-foreground">
             The check-in deadline ({shortTime(reservation.check_in_deadline)}) has passed. Locker{" "}
             {locker.locker_number} has been released and can be reserved again.
           </p>
-          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+          <Button type="button" className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold" onClick={onClose}>
             Done
           </Button>
         </div>
@@ -631,11 +631,11 @@ function DropOffContent({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <div className="space-y-4 px-4 pt-2 pb-6 text-center">
-          <p className="font-display text-3xl font-bold tracking-tight">Already checked in</p>
+          <p className="text-2xl font-semibold">Already checked in</p>
           <p className="text-base text-muted-foreground">
             This reservation was already confirmed — no new check-in was created.
           </p>
-          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+          <Button type="button" className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold" onClick={onClose}>
             Done
           </Button>
         </div>
@@ -646,7 +646,7 @@ function DropOffContent({
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="font-display text-2xl">
+        <SheetTitle className="text-xl font-semibold">
           Drop-off · Locker {locker.locker_number}
         </SheetTitle>
         <SheetDescription>
@@ -666,13 +666,13 @@ function DropOffContent({
           <Button
             type="button"
             variant="destructive"
-            className="min-h-14 w-full text-lg font-bold"
+            className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
             disabled={submitting}
             onClick={confirm}
           >
             {submitting ? "Releasing…" : "Release reservation"}
           </Button>
-          <Button type="button" variant="ghost" className="min-h-12 w-full" onClick={onBack}>
+          <Button type="button" variant="ghost" className="h-12 w-full rounded-xl" onClick={onBack}>
             Back
           </Button>
         </div>
@@ -689,24 +689,24 @@ function DropOffContent({
               maxLength={4}
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              className="panel font-display w-full px-4 py-3 text-center text-4xl font-bold tracking-[0.5em]"
+              className="panel w-full rounded-xl px-4 py-3 text-center text-3xl font-semibold tracking-[0.4em] tabular-nums"
               placeholder="····"
             />
           </div>
           {error && (
-            <p role="alert" className="text-base font-bold text-destructive">
+            <p role="alert" className="text-sm font-semibold text-destructive">
               {error}
             </p>
           )}
           <Button
             type="button"
-            className="min-h-14 w-full text-lg font-bold"
+            className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
             disabled={submitting || code.length !== 4}
             onClick={confirm}
           >
             {submitting ? "Checking…" : error ? "Retry" : "Confirm"}
           </Button>
-          <Button type="button" variant="ghost" className="min-h-12 w-full" onClick={onBack}>
+          <Button type="button" variant="ghost" className="h-12 w-full rounded-xl" onClick={onBack}>
             Back
           </Button>
         </div>
@@ -773,9 +773,9 @@ function PickupContent({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <div className="space-y-4 px-4 pt-2 pb-6 text-center">
-          <p className="font-display text-3xl font-bold tracking-tight">✓ Pickup verified</p>
+          <p className="text-2xl font-semibold">✓ Pickup verified</p>
           <div className="panel p-4">
-            <p className="font-display text-2xl font-bold">
+            <p className="text-xl font-semibold">
               Locker {locker.locker_number} released.
             </p>
             <p className="mt-1 text-lg font-semibold">
@@ -783,7 +783,7 @@ function PickupContent({
               storage.
             </p>
           </div>
-          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+          <Button type="button" className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold" onClick={onClose}>
             Back to board
           </Button>
         </div>
@@ -795,11 +795,11 @@ function PickupContent({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <div className="space-y-4 px-4 pt-2 pb-6 text-center">
-          <p className="font-display text-3xl font-bold tracking-tight">Already picked up</p>
+          <p className="text-2xl font-semibold">Already picked up</p>
           <p className="text-base text-muted-foreground">
             This reservation was already collected — no new pickup was recorded.
           </p>
-          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+          <Button type="button" className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold" onClick={onClose}>
             Done
           </Button>
         </div>
@@ -810,7 +810,7 @@ function PickupContent({
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="font-display text-2xl">
+        <SheetTitle className="text-xl font-semibold">
           Locker {locker.locker_number} · Pickup
         </SheetTitle>
         <SheetDescription>
@@ -831,24 +831,24 @@ function PickupContent({
             maxLength={4}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            className="panel font-display w-full px-4 py-3 text-center text-4xl font-bold tracking-[0.5em]"
+            className="panel w-full rounded-xl px-4 py-3 text-center text-3xl font-semibold tracking-[0.4em] tabular-nums"
             placeholder="····"
           />
         </div>
         {error && (
-          <p role="alert" className="text-base font-bold text-destructive">
+          <p role="alert" className="text-sm font-semibold text-destructive">
             {error}
           </p>
         )}
         <Button
           type="button"
-          className="min-h-14 w-full text-lg font-bold"
+          className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
           disabled={submitting || code.length !== 4}
           onClick={confirm}
         >
           {submitting ? "Verifying…" : error ? "Retry" : "Verify pickup"}
         </Button>
-        <Button type="button" variant="ghost" className="min-h-12 w-full" onClick={onBack}>
+        <Button type="button" variant="ghost" className="h-12 w-full rounded-xl" onClick={onBack}>
           Back
         </Button>
       </div>
@@ -895,7 +895,7 @@ function ReportIssueContent({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
-          <SheetTitle className="font-display text-2xl">✓ Issue reported</SheetTitle>
+          <SheetTitle className="text-xl font-semibold">✓ Issue reported</SheetTitle>
           <SheetDescription>Locker {done} has been flagged.</SheetDescription>
         </SheetHeader>
         <div className="space-y-3 px-4 pb-6">
@@ -905,7 +905,7 @@ function ReportIssueContent({
               already stored there stay where they are.
             </p>
           )}
-          <Button type="button" className="min-h-12 w-full text-base font-bold" onClick={onClose}>
+          <Button type="button" className="pressable h-12 w-full rounded-xl text-[15px] font-semibold" onClick={onClose}>
             Done
           </Button>
         </div>
@@ -916,7 +916,7 @@ function ReportIssueContent({
   return (
     <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="font-display text-2xl">⚠ Report issue</SheetTitle>
+        <SheetTitle className="text-xl font-semibold">⚠ Report issue</SheetTitle>
         <SheetDescription>What happened?</SheetDescription>
       </SheetHeader>
       <div className="space-y-4 px-4 pb-6">
@@ -927,7 +927,7 @@ function ReportIssueContent({
               type="button"
               aria-pressed={type === o.type}
               onClick={() => setType(o.type)}
-              className={`panel min-h-12 px-3 text-left text-base font-bold ${
+              className={`panel pressable min-h-12 rounded-xl px-3 text-left text-[15px] font-medium ${
                 type === o.type ? "bg-primary text-primary-foreground ring-2 ring-primary" : ""
               }`}
             >
@@ -942,7 +942,7 @@ function ReportIssueContent({
           </label>
           <select
             id="incident-locker"
-            className="panel mt-1 min-h-12 w-full px-3 text-base font-semibold"
+            className="panel mt-1 h-12 w-full rounded-xl px-3 text-base font-semibold"
             value={picked}
             onChange={(e) => setPicked(e.target.value)}
           >
@@ -971,7 +971,7 @@ function ReportIssueContent({
         <Button
           type="button"
           disabled={!type || !picked || saving}
-          className="min-h-14 w-full text-base font-bold"
+          className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
           onClick={submit}
         >
           {saving ? "Reporting…" : "Report issue"}
@@ -991,7 +991,7 @@ function OfflineNotice({ onClose }: { onClose: () => void }) {
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="font-display text-2xl">You're offline</SheetTitle>
+        <SheetTitle className="text-xl font-semibold">You're offline</SheetTitle>
         <SheetDescription>
           Locker information is available from your last sync.
         </SheetDescription>
@@ -1001,7 +1001,7 @@ function OfflineNotice({ onClose }: { onClose: () => void }) {
           New reservations require a connection to prevent double-booking.
         </p>
         <Button
-          className="h-14 w-full text-base font-bold"
+          className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
           disabled={retrying}
           onClick={async () => {
             setRetrying(true);
