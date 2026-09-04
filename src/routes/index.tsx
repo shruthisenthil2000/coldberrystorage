@@ -323,7 +323,7 @@ function ReserveSheet({
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 pr-12">
           <img
             src={lockerSampleImg}
             alt=""
