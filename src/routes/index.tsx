@@ -10,12 +10,11 @@ import {
   isReservable,
   usedCrates,
   LOCKER_LABEL,
-  RESERVATION_LABEL,
   SLOT_LABEL,
-  reservationTone,
   shortTime,
   checkInDeadline,
   clockTime,
+  isCheckInUrgent,
   CHECK_IN_WINDOW_MINUTES,
   statusTone,
   tempState,
@@ -238,7 +237,7 @@ function ReserveSheet({
                 setShortfall(null);
               }}
             >
-              Change quantity
+              Reserve {shortfall} crate{shortfall === 1 ? "" : "s"}
             </Button>
           ) : (
             <Button className="h-14 w-full text-base" onClick={onClose}>
@@ -361,7 +360,9 @@ function ReserveSheet({
             >
               +
             </Button>
-            <span className="text-sm text-muted-foreground">of {free} free</span>
+            <span className="text-sm text-muted-foreground">
+              {free} crate{free === 1 ? "" : "s"} available
+            </span>
           </div>
         </div>
 
@@ -371,7 +372,9 @@ function ReserveSheet({
           disabled={saving || !farmerId || crates <= 0 || crates > free}
           onClick={reserve}
         >
-          {saving ? "Reserving…" : "Reserve locker"}
+          {saving
+            ? "Reserving…"
+            : `Reserve ${crates} crate${crates === 1 ? "" : "s"}`}
         </Button>
       </div>
     </SheetContent>
@@ -435,7 +438,9 @@ function ReservationSheet({
             <li key={r.id} className="panel p-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-base font-bold">{farmer?.farm_name ?? "Unknown farm"}</span>
-                <Chip tone={reservationTone(r.status)}>{RESERVATION_LABEL[r.status]}</Chip>
+                <Chip tone={displayTone(displayStatus(r))}>
+                  {DISPLAY_STATUS_LABEL[displayStatus(r)]}
+                </Chip>
               </div>
               <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
                 <dt className="stat-label">Crates</dt>
@@ -817,7 +822,7 @@ function PickupContent({
         </SheetTitle>
         <SheetDescription>
           {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
-          {RESERVATION_LABEL[reservation.status]}
+          {DISPLAY_STATUS_LABEL[displayStatus(reservation)]}
         </SheetDescription>
       </SheetHeader>
 
@@ -898,15 +903,18 @@ function ReportIssueContent({
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
           <SheetTitle className="text-xl font-semibold">✓ Issue reported</SheetTitle>
-          <SheetDescription>Locker {done} has been flagged.</SheetDescription>
+          <SheetDescription>
+            {option?.blocks
+              ? `Locker ${done} has been marked out of service.`
+              : `Thanks — the issue on locker ${done} has been logged.`}
+          </SheetDescription>
         </SheetHeader>
         <div className="space-y-3 px-4 pb-6">
-          {option?.blocks && (
-            <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
-              Locker {done} will not accept new reservations until the problem is fixed. Crates
-              already stored there stay where they are.
-            </p>
-          )}
+          <p className="rounded-md border border-border bg-muted p-3 text-sm">
+            {option?.blocks
+              ? "No new crates can be booked into this locker until it is fixed. Crates already stored there stay where they are."
+              : "The locker stays available. The team will look into it."}
+          </p>
           <Button type="button" className="pressable h-12 w-full rounded-xl text-[15px] font-semibold" onClick={onClose}>
             Done
           </Button>
@@ -970,14 +978,24 @@ function ReportIssueContent({
           />
         </div>
 
-        <Button
-          type="button"
-          disabled={!type || !picked || saving}
-          className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
-          onClick={submit}
-        >
-          {saving ? "Reporting…" : "Report issue"}
-        </Button>
+        {type && (
+          <p className="meta-text">
+            {INCIDENT_OPTIONS.find((o) => o.type === type)?.blocks
+              ? "This locker will be marked out of service straight away."
+              : "The locker stays available — the issue is logged for the team."}
+          </p>
+        )}
+
+        <div className="sticky bottom-0 -mx-4 border-t border-border bg-popover px-4 pt-3 pb-1">
+          <Button
+            type="button"
+            disabled={!type || !picked || saving}
+            className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
+            onClick={submit}
+          >
+            {saving ? "Reporting…" : "Report issue"}
+          </Button>
+        </div>
       </div>
     </SheetContent>
   );
@@ -1044,67 +1062,65 @@ function LockerCard({
   const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
 
 
+  const free = locker.capacity - used;
+
   return (
     <article
-      className={`panel flex flex-col p-4 pl-5 ${statusTone(locker.status).replace("tone-", "edge-")}`}
+      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(locker.status).replace("tone-", "edge-")}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="card-title truncate">🫐 Locker {locker.locker_number}</h3>
+          <h3 className="card-title truncate">Locker {locker.locker_number}</h3>
           <p className="meta-text mt-0.5 truncate">{locker.zone}</p>
         </div>
         <Chip tone={statusTone(locker.status)}>{LOCKER_LABEL[locker.status]}</Chip>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-sm font-medium">
-          {Number(locker.temperature).toFixed(1)} °C
-          <Chip tone={tempTone(tState)}>{tState}</Chip>
-        </span>
-        <span className="text-sm font-semibold tabular-nums">
-          {used}
-          <span className="text-muted-foreground"> / {locker.capacity} crates</span>
-        </span>
-      </div>
-
-      <div className="mt-2">
-        <CapacityBar used={used} capacity={locker.capacity} />
-      </div>
-
-      {incidents.length > 0 && (
-        <div className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
-          {incidents.map((i) => (
-            <p key={i.id}>
-              <span className="font-semibold">⚠ {INCIDENT_LABEL[i.type]}</span> — {i.description}
-            </p>
-          ))}
-          {down && used > 0 && (
-            <p className="mt-2 font-medium">
-              {used} crate{used === 1 ? "" : "s"} currently stored. The locker is unavailable for
-              new reservations.
-            </p>
+      {down ? (
+        <div className="mt-2.5 text-sm">
+          <p className="font-semibold">
+            {incidents[0] ? INCIDENT_LABEL[incidents[0].type] : "Locker unavailable"}
+          </p>
+          {incidents[0]?.description && (
+            <p className="meta-text mt-0.5">{incidents[0].description}</p>
           )}
+          <p className="meta-text mt-0.5">
+            Reservations unavailable
+            {used > 0
+              ? ` · ${used} crate${used === 1 ? "" : "s"} still stored here`
+              : ""}
+            .
+          </p>
         </div>
+      ) : (
+        <>
+          <div className="mt-2.5 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-sm font-medium">
+              {Number(locker.temperature).toFixed(1)} °C
+              <Chip tone={tempTone(tState)}>{tState}</Chip>
+            </span>
+            <span className="text-sm font-semibold tabular-nums">
+              {free}
+              <span className="text-muted-foreground"> of {locker.capacity} crates free</span>
+            </span>
+          </div>
+          <div className="mt-1.5">
+            <CapacityBar used={used} capacity={locker.capacity} />
+          </div>
+        </>
       )}
 
-      <div className="mt-4 grid gap-2">
-        {down && used > 0 ? (
-          <Button
-            variant="secondary"
-            className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
-            onClick={() => setSheet("view")}
-          >
-            View reservation
-          </Button>
-        ) : down ? (
-          <div className="panel-flat p-3 text-sm shadow-none">
-            <p className="font-semibold">Out of service</p>
-            <p className="meta-text mt-0.5">
-              {incidents[0]
-                ? `${INCIDENT_LABEL[incidents[0].type]} reported — reservations unavailable.`
-                : "Reservations unavailable until this locker is checked."}
-            </p>
-          </div>
+      <div className="mt-3 grid gap-2">
+        {down ? (
+          used > 0 ? (
+            <Button
+              variant="secondary"
+              className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
+              onClick={() => setSheet("view")}
+            >
+              View stored crates
+            </Button>
+          ) : null
         ) : (
           <>
             {open && (
@@ -1115,15 +1131,6 @@ function LockerCard({
                 Reserve
               </Button>
             )}
-            {used > 0 && (
-              <Button
-                variant="outline"
-                className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
-                onClick={() => setSheet("view")}
-              >
-                {locker.status === "IN_STORAGE" ? "View storage" : "View reservation"}
-              </Button>
-            )}
             {!open && used === 0 && (
               <p className="panel-flat flex h-12 items-center justify-center text-sm font-medium text-muted-foreground shadow-none">
                 Full
@@ -1132,14 +1139,25 @@ function LockerCard({
           </>
         )}
 
-        <Button
-          type="button"
-          variant="ghost"
-          className="pressable h-11 w-full rounded-xl text-sm font-medium text-muted-foreground"
-          onClick={() => setSheet("report")}
-        >
-          ⚠ Report issue
-        </Button>
+        <div className={`grid gap-2 ${!down && used > 0 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {!down && used > 0 && (
+            <Button
+              variant="outline"
+              className="pressable h-11 w-full rounded-xl text-sm font-semibold"
+              onClick={() => setSheet("view")}
+            >
+              {locker.status === "IN_STORAGE" ? "View storage" : "View booking"}
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="ghost"
+            className="pressable h-11 w-full rounded-xl text-sm font-medium text-muted-foreground"
+            onClick={() => setSheet("report")}
+          >
+            Report issue
+          </Button>
+        </div>
       </div>
 
       <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
@@ -1179,9 +1197,10 @@ function Board() {
 
   // When the connection comes back, pull authoritative locker/reservation state.
   useEffect(() => {
-    function onBackOnline() {
-      toast.success("Back online — syncing latest locker information…");
-      queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+    async function onBackOnline() {
+      toast.success("Back online — syncing changes…");
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      toast.success("Synced");
     }
     window.addEventListener("online", onBackOnline);
     return () => window.removeEventListener("online", onBackOnline);
@@ -1220,22 +1239,34 @@ function Board() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
-        {stale && data && (
-          <div className="panel-flat mb-4 flex items-center justify-between gap-3 p-3">
-            <p className="text-sm">
-              <span className="font-semibold">Offline</span>
-              <span className="block meta-text">Last synced {clockTime(data.syncedAt)}</span>
+        {data && (
+          stale ? (
+            <div className="panel-flat mb-4 flex items-center justify-between gap-3 p-3">
+              <p className="text-sm">
+                <span className="flex items-center gap-2 font-semibold">
+                  <span className="size-2.5 rounded-full tone-booked" aria-hidden="true" />
+                  Offline
+                </span>
+                <span className="meta-text mt-0.5 block">
+                  Showing saved information · last synced {clockTime(data.syncedAt)}
+                </span>
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="pressable h-11 shrink-0 rounded-xl font-semibold"
+                disabled={isFetching}
+                onClick={() => refetch()}
+              >
+                {isFetching ? "Checking…" : "Retry"}
+              </Button>
+            </div>
+          ) : (
+            <p className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <span className="size-2 rounded-full tone-free" aria-hidden="true" />
+              {isFetching ? "Syncing…" : `Synced ${clockTime(data.syncedAt)}`}
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="pressable h-11 shrink-0 rounded-xl font-semibold"
-              disabled={isFetching}
-              onClick={() => refetch()}
-            >
-              {isFetching ? "Checking…" : "Retry"}
-            </Button>
-          </div>
+          )
         )}
 
         {isPending && <p className="mt-8 text-muted-foreground">Loading the board…</p>}
@@ -1400,6 +1431,7 @@ function BookingCard({
   const status = displayStatus(reservation, now);
   const remaining =
     reservation.status === "RESERVED" ? formatCountdown(reservation.check_in_deadline, now) : null;
+  const urgent = reservation.status === "RESERVED" && isCheckInUrgent(reservation.check_in_deadline, now);
   const lockerDown = locker?.status === "BREAKDOWN" || locker?.status === "MAINTENANCE";
   const incidents = locker ? openIncidents(locker.id, data.incidents) : [];
 
@@ -1420,7 +1452,12 @@ function BookingCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {compact && <p className="stat-label">Your active reservation</p>}
+          {compact && (
+            <p className="stat-label">
+              Your {(SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot).toLowerCase()}{" "}
+              reservation
+            </p>
+          )}
           <h3 className="card-title truncate">🫐 Locker {locker?.locker_number ?? "—"}</h3>
           <p className="meta-text truncate">
             {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
@@ -1432,21 +1469,32 @@ function BookingCard({
       </div>
 
       {reservation.status === "RESERVED" && remaining && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="panel-flat p-3">
-            <p className="stat-label">Check in by</p>
-            <p className="text-xl font-semibold tabular-nums">
-              {clockTime(reservation.check_in_deadline)}
-            </p>
-            <p className="meta-text tabular-nums">{remaining} remaining</p>
+        <>
+          <p className="mt-2.5 text-sm font-medium">
+            Check in within {CHECK_IN_WINDOW_MINUTES} minutes
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className={`panel-flat p-3 ${urgent ? "border-destructive/60" : ""}`}>
+              <p className="stat-label">Check in by</p>
+              <p className="text-xl font-semibold tabular-nums">
+                {clockTime(reservation.check_in_deadline)}
+              </p>
+              <p
+                className={`text-sm font-semibold tabular-nums ${
+                  urgent ? "text-destructive" : "text-muted-foreground"
+                }`}
+              >
+                {remaining} remaining
+              </p>
+            </div>
+            <div className="panel-flat p-3">
+              <p className="stat-label">Verification code</p>
+              <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
+                {reservation.dropoff_code}
+              </p>
+            </div>
           </div>
-          <div className="panel-flat p-3">
-            <p className="stat-label">Verification code</p>
-            <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
-              {reservation.dropoff_code}
-            </p>
-          </div>
-        </div>
+        </>
       )}
 
       {(reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
@@ -1488,10 +1536,10 @@ function BookingCard({
         </p>
       )}
 
-      {locker && reservation.status === "RESERVED" && (
+      {locker && reservation.status === "RESERVED" && remaining && (
         <Button
           type="button"
-          className="pressable btn-gradient mt-3 h-12 w-full rounded-xl text-[15px] font-semibold"
+          className="pressable btn-gradient mt-3 h-14 w-full rounded-xl text-base font-semibold"
           onClick={() => setSheet("dropoff")}
         >
           Check in / Drop off
@@ -1500,7 +1548,7 @@ function BookingCard({
       {locker && (reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
         <Button
           type="button"
-          className="pressable mt-3 h-12 w-full rounded-xl text-[15px] font-semibold"
+          className="pressable mt-3 h-14 w-full rounded-xl text-base font-semibold"
           onClick={() => setSheet("pickup")}
         >
           Pick up crates
@@ -1551,7 +1599,14 @@ function LastReservationCard({ data }: { data: BoardData }) {
     };
   }, []);
 
-  const reservation = id ? data.reservations.find((r) => r.id === id) : undefined;
+  // Prefer the booking made on this device; otherwise surface the newest live
+  // booking so the board always answers "what do I do next?".
+  const saved = id ? data.reservations.find((r) => r.id === id) : undefined;
+  const reservation =
+    saved ??
+    [...data.reservations]
+      .filter((r) => ACTIVE_RESERVATION_STATUSES.includes(r.status))
+      .sort((a, b) => new Date(b.reserved_at).getTime() - new Date(a.reserved_at).getTime())[0];
   if (!reservation) return null;
   if (reservation.status === "PICKED_UP") return null;
 

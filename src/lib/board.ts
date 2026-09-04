@@ -128,13 +128,19 @@ export function isReservable(locker: Locker, reservations: Reservation[]): boole
   return freeCrates(locker, reservations) > 0;
 }
 
+/** The only four locker states the farmer ever sees. */
 export const LOCKER_LABEL: Record<LockerStatus, string> = {
-  AVAILABLE: "Free",
+  AVAILABLE: "Available",
   RESERVED: "Booked",
   IN_STORAGE: "In storage",
-  MAINTENANCE: "Maintenance",
-  BREAKDOWN: "Broken",
+  MAINTENANCE: "Out of service",
+  BREAKDOWN: "Out of service",
 };
+
+/** True when the locker cannot take new crates for any reason. */
+export function isOutOfService(locker: Locker): boolean {
+  return locker.status === "MAINTENANCE" || locker.status === "BREAKDOWN";
+}
 
 export const RESERVATION_LABEL: Record<ReservationStatus, string> = {
   RESERVED: "Booked",
@@ -195,7 +201,8 @@ export function statusTone(status: LockerStatus): string {
     case "IN_STORAGE":
       return "tone-stored";
     case "MAINTENANCE":
-      return "tone-warn";
+      // Maintenance and breakdown both read as OUT OF SERVICE, so they share a colour.
+      return "tone-down";
     case "BREAKDOWN":
       return "tone-down";
   }
@@ -341,7 +348,7 @@ export function displayTone(status: DisplayStatus): string {
     case "RESERVED":
       return "tone-booked";
     case "CHECK_IN_REQUIRED":
-      return "tone-warn";
+      return "tone-down";
     case "IN_STORAGE":
       return "tone-stored";
     case "COMPLETED":
@@ -354,6 +361,14 @@ export function displayTone(status: DisplayStatus): string {
 }
 
 /** "32:14" style countdown; returns null once the deadline has passed. */
+/** Under this many minutes the check-in countdown is shown as urgent. */
+export const CRITICAL_MINUTES = 10;
+
+export function isCheckInUrgent(deadline: string, now: number = Date.now()): boolean {
+  const ms = new Date(deadline).getTime() - now;
+  return ms > 0 && ms <= CRITICAL_MINUTES * 60_000;
+}
+
 export function formatCountdown(deadline: string, now: number = Date.now()): string | null {
   const ms = new Date(deadline).getTime() - now;
   if (ms <= 0) return null;
@@ -426,12 +441,18 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
   }
 
   for (const i of data.incidents) {
+    const resolved = i.status === "RESOLVED";
+    const blocks = INCIDENT_OPTIONS.find((o) => o.type === i.type)?.blocks != null;
     events.push({
       id: `${i.id}-incident`,
       at: i.reported_at,
-      title: i.status === "RESOLVED" ? "Locker returned to service" : "Locker reported",
-      detail: `Locker ${lockerOf(i.locker_id)} · ${INCIDENT_LABEL[i.type]}${i.description ? ` — ${i.description}` : ""}`,
-      tone: i.status === "RESOLVED" ? "tone-free" : "tone-down",
+      title: resolved
+        ? `${INCIDENT_LABEL[i.type]} resolved`
+        : `${INCIDENT_LABEL[i.type]} reported`,
+      detail: resolved
+        ? `Locker ${lockerOf(i.locker_id)} · back in service`
+        : `Locker ${lockerOf(i.locker_id)} · ${blocks ? "out of service" : "still available"}`,
+      tone: resolved ? "tone-free" : "tone-down",
     });
   }
 
