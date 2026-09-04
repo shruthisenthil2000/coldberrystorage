@@ -37,6 +37,8 @@ import {
   readIncidentQueue,
   QUEUE_EVENT,
   isStale,
+  isOffline,
+
   lockerSizeLabel,
   ACTIVE_RESERVATION_STATUSES,
   buildActivity,
