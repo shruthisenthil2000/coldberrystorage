@@ -1043,10 +1043,12 @@ function LockerCard({
 
 
   return (
-    <article className="panel flex flex-col p-4">
+    <article
+      className={`panel flex flex-col p-4 pl-5 ${statusTone(locker.status).replace("tone-", "edge-")}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="card-title truncate">Locker {locker.locker_number}</h3>
+          <h3 className="card-title truncate">🫐 Locker {locker.locker_number}</h3>
           <p className="meta-text mt-0.5 truncate">{locker.zone}</p>
         </div>
         <Chip tone={statusTone(locker.status)}>{LOCKER_LABEL[locker.status]}</Chip>
@@ -1259,7 +1261,10 @@ function Board() {
                   ],
                 ] as const
               ).map(([label, value, tone]) => (
-                <div key={label} className="panel flex items-center gap-3 p-3">
+                <div
+                  key={label}
+                  className={`flex items-center gap-3 rounded-[var(--radius)] border p-3 shadow-[var(--shadow-card)] ${tone.replace("tone-", "tile-")}`}
+                >
                   <span className={`size-2.5 shrink-0 rounded-full ${tone}`} aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-xl leading-tight font-semibold tabular-nums">{value}</p>
@@ -1280,10 +1285,11 @@ function Board() {
                     onClick={() => navigate({ search: { slot: s }, replace: true })}
                     className={`pressable h-11 rounded-lg text-[15px] font-semibold ${
                       slot === s
-                        ? "bg-card text-foreground shadow-sm"
+                        ? "btn-gradient shadow-sm"
                         : "text-muted-foreground"
                     }`}
                   >
+                    {s === "MORNING" ? "🌅 " : "🌇 "}
                     {SLOT_LABEL[s]}
                   </button>
                 ))}
