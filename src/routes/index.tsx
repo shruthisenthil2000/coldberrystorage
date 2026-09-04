@@ -1154,13 +1154,17 @@ function LockerCard({
 }
 
 
+type Tab = "home" | "bookings" | "activity";
+
 function Board() {
   const { slot } = Route.useSearch();
   const navigate = useNavigate({ from: "/" });
   const queryClient = useQueryClient();
   const { data, isPending, error, refetch, isFetching } = useQuery(boardQuery);
   const online = useOnline();
+  const { theme, toggle } = useTheme();
   const [reporting, setReporting] = useState(false);
+  const [tab, setTab] = useState<Tab>("home");
 
   // When the connection comes back, pull authoritative locker/reservation state.
   useEffect(() => {
@@ -1174,139 +1178,180 @@ function Board() {
   const stale = !online || data?.fromCache === true;
 
   const today = new Date().toLocaleDateString(undefined, {
-    weekday: "long",
+    weekday: "short",
+    month: "short",
     day: "numeric",
-    month: "long",
   });
 
+  const active = data
+    ? data.reservations.filter(
+        (r) => r.status === "RESERVED" || r.status === "CHECKED_IN" || r.status === "STORED",
+      )
+    : [];
+
   return (
-    <main className="mx-auto min-h-screen w-full max-w-3xl px-4 pt-5 pb-16">
-      <header className="flex items-start justify-between gap-3">
-        <div>
-          <p className="stat-label">ColdStore · Community Cold Storage</p>
-          <h1 className="font-display text-4xl leading-none font-bold tracking-tight">
-            Locker Board
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{today}</p>
+    <PhoneShell online={online}>
+      <header className="shrink-0 border-b border-border bg-card/80 px-4 pt-2 pb-3 backdrop-blur">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+          <div className="min-w-0">
+            <h1 className="screen-title truncate">ColdStore</h1>
+            <p className="meta-text truncate">Community storage · Today, {today}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <span
+              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+              role="status"
+            >
+              <span
+                className={`size-2 rounded-full ${online ? "tone-free" : "tone-booked"}`}
+                aria-hidden="true"
+              />
+              {online ? "Online" : "Offline"}
+            </span>
+            <button
+              type="button"
+              onClick={toggle}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              className="pressable grid size-11 place-items-center rounded-full border border-border bg-secondary text-secondary-foreground"
+            >
+              {theme === "dark" ? <Sun className="size-5" /> : <Moon className="size-5" />}
+            </button>
+          </div>
         </div>
-        <span
-          className={`status-chip ${online ? "tone-free" : "tone-booked"}`}
-          role="status"
-        >
-          {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
-          {online ? "🟢 Online" : "🟡 Offline"}
-        </span>
       </header>
 
-      {stale && data && (
-        <div className="panel mt-3 flex items-center justify-between gap-3 border-2 border-primary/60 p-3">
-          <p className="text-sm font-semibold">
-            Showing data cached at {clockTime(data.syncedAt)}.
-            <span className="block font-normal text-muted-foreground">
-              New reservations need a connection.
-            </span>
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
+        {stale && data && (
+          <div className="panel-flat mb-4 flex items-center justify-between gap-3 p-3">
+            <p className="text-sm">
+              <span className="font-semibold">Offline</span>
+              <span className="block meta-text">Last synced {clockTime(data.syncedAt)}</span>
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="pressable h-11 shrink-0 rounded-xl font-semibold"
+              disabled={isFetching}
+              onClick={() => refetch()}
+            >
+              {isFetching ? "Checking…" : "Retry"}
+            </Button>
+          </div>
+        )}
+
+        {isPending && <p className="mt-8 text-muted-foreground">Loading the board…</p>}
+        {error && (
+          <p className="mt-8 font-semibold text-destructive">
+            The board couldn't load. Check your connection and pull to refresh.
           </p>
-          <Button
-            type="button"
-            variant="secondary"
-            className="min-h-11 shrink-0 font-bold"
-            disabled={isFetching}
-            onClick={() => refetch()}
-          >
-            {isFetching ? "Checking…" : "Retry"}
-          </Button>
-        </div>
-      )}
+        )}
 
-      {isPending && <p className="mt-8 text-muted-foreground">Loading the board…</p>}
-      {error && (
-        <p className="mt-8 font-semibold text-destructive">
-          The board couldn't load. Check your connection and pull to refresh.
-        </p>
-      )}
+        {data && tab === "home" && (
+          <>
+            <LastReservationCard data={data} />
 
-
-      {data && (
-        <>
-          <LastReservationCard data={data} />
-
-          <Button
-            type="button"
-            variant="destructive"
-            className="mt-5 min-h-14 w-full text-base font-bold"
-            onClick={() => setReporting(true)}
-          >
-            ⚠ Report issue
-          </Button>
-          <Sheet open={reporting} onOpenChange={setReporting}>
-            {reporting && (
-              <ReportIssueContent data={data} onClose={() => setReporting(false)} />
-            )}
-          </Sheet>
-
-
-          <section className="mt-5 grid grid-cols-5 gap-1.5 max-sm:grid-cols-3">
-            {(
-              [
-                ["Total", data.lockers.length, ""],
-                ["Available", data.lockers.filter((l) => l.status === "AVAILABLE").length, "tone-free"],
-                ["Booked", data.lockers.filter((l) => l.status === "RESERVED").length, "tone-booked"],
-                ["In storage", data.lockers.filter((l) => l.status === "IN_STORAGE").length, "tone-stored"],
+            <section className="mt-4 grid grid-cols-2 gap-2" aria-label="Locker summary">
+              {(
                 [
-                  "Down",
-                  data.lockers.filter(
-                    (l) => l.status === "MAINTENANCE" || l.status === "BREAKDOWN",
-                  ).length,
-                  "tone-down",
-                ],
-              ] as const
-            ).map(([label, value, tone]) => (
-              <div key={label} className={`panel p-2.5 ${tone ? "" : ""}`}>
-                <p className="stat-label">{label}</p>
-                <p className={`font-display text-3xl font-bold ${tone ? "" : ""}`}>{value}</p>
-                {tone && <span className={`mt-1 block h-1 rounded-full ${tone}`} />}
-              </div>
-            ))}
-          </section>
-
-          <section className="mt-5" aria-label="Harvest slot">
-            <p className="stat-label mb-2">Harvest slot</p>
-            <div className="grid grid-cols-2 gap-2" role="group">
-              {(["MORNING", "AFTERNOON"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  aria-pressed={slot === s}
-                  onClick={() => navigate({ search: { slot: s }, replace: true })}
-                  className={`panel min-h-14 text-lg font-bold ${
-                    slot === s ? "ring-2 ring-primary bg-primary text-primary-foreground" : ""
-                  }`}
-                >
-                  {SLOT_LABEL[s]}
-                </button>
+                  ["Available", data.lockers.filter((l) => l.status === "AVAILABLE").length, "tone-free"],
+                  ["Booked", data.lockers.filter((l) => l.status === "RESERVED").length, "tone-booked"],
+                  ["In storage", data.lockers.filter((l) => l.status === "IN_STORAGE").length, "tone-stored"],
+                  [
+                    "Out of service",
+                    data.lockers.filter(
+                      (l) => l.status === "MAINTENANCE" || l.status === "BREAKDOWN",
+                    ).length,
+                    "tone-down",
+                  ],
+                ] as const
+              ).map(([label, value, tone]) => (
+                <div key={label} className="panel flex items-center gap-3 p-3">
+                  <span className={`size-2.5 shrink-0 rounded-full ${tone}`} aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-xl leading-tight font-semibold tabular-nums">{value}</p>
+                    <p className="meta-text truncate">{label}</p>
+                  </div>
+                </div>
               ))}
-            </div>
-          </section>
+            </section>
 
-          <section className="mt-5 grid gap-3 sm:grid-cols-2">
-            {data.lockers.map((locker) => (
-              <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
-            ))}
-          </section>
+            <section className="mt-5" aria-label="Harvest slot">
+              <p className="stat-label mb-2">Harvest slot</p>
+              <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1" role="group">
+                {(["MORNING", "AFTERNOON"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    aria-pressed={slot === s}
+                    onClick={() => navigate({ search: { slot: s }, replace: true })}
+                    className={`pressable h-11 rounded-lg text-[15px] font-semibold ${
+                      slot === s
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {SLOT_LABEL[s]}
+                  </button>
+                ))}
+              </div>
+            </section>
 
-          <section className="mt-8">
-            <h2 className="font-display text-2xl font-bold tracking-tight">Recent bookings</h2>
-            <ul className="mt-3 space-y-2">
-              {data.reservations.slice(0, 8).map((r: Reservation) => {
+            <section className="mt-5 grid gap-3">
+              <h2 className="section-heading">Lockers</h2>
+              {data.lockers.map((locker) => (
+                <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
+              ))}
+            </section>
+          </>
+        )}
+
+        {data && tab === "bookings" && (
+          <>
+            <h2 className="section-heading">Your bookings</h2>
+            <LastReservationCard data={data} />
+            <ul className="mt-3 grid gap-2">
+              {active.length === 0 && (
+                <li className="panel-flat p-4 text-sm text-muted-foreground">
+                  No active bookings right now. Reserve a locker from Home.
+                </li>
+              )}
+              {active.map((r: Reservation) => {
+                const locker = data.lockers.find((l) => l.id === r.locker_id);
+                const farmer = data.farmers.find((f) => f.id === r.farmer_id);
+                return (
+                  <li key={r.id} className="panel flex items-center justify-between gap-3 p-4">
+                    <div className="min-w-0">
+                      <p className="card-title truncate">Locker {locker?.locker_number}</p>
+                      <p className="meta-text truncate">
+                        {farmer?.name} · {r.crate_count} crate{r.crate_count === 1 ? "" : "s"} ·{" "}
+                        {shortTime(r.reserved_at)}
+                      </p>
+                    </div>
+                    <Chip tone={reservationTone(r.status)}>{RESERVATION_LABEL[r.status]}</Chip>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="meta-text mt-3">
+              Open a locker on Home to confirm a drop-off or verify a pickup.
+            </p>
+          </>
+        )}
+
+        {data && tab === "activity" && (
+          <>
+            <h2 className="section-heading">Recent activity</h2>
+            <ul className="mt-3 grid gap-2">
+              {data.reservations.slice(0, 12).map((r: Reservation) => {
                 const farmer = data.farmers.find((f) => f.id === r.farmer_id);
                 const locker = data.lockers.find((l) => l.id === r.locker_id);
                 return (
-                  <li key={r.id} className="panel flex items-center justify-between gap-3 p-3">
+                  <li key={r.id} className="panel flex items-center justify-between gap-3 p-3.5">
                     <div className="min-w-0">
-                      <p className="truncate font-semibold">
-                        {locker?.locker_number} · {farmer?.name}
+                      <p className="truncate text-[15px] font-medium">
+                        Locker {locker?.locker_number} · {farmer?.name}
                       </p>
-                      <p className="truncate text-sm text-muted-foreground">
+                      <p className="meta-text truncate">
                         {r.crate_count} crates · {shortTime(r.reserved_at)}
                       </p>
                     </div>
@@ -1315,12 +1360,55 @@ function Board() {
                 );
               })}
             </ul>
-          </section>
-        </>
+          </>
+        )}
+      </div>
+
+      <nav className="shrink-0 border-t border-border bg-card px-2 pt-1.5 pb-2">
+        <ul className="grid grid-cols-4">
+          {(
+            [
+              ["home", "Home", LayoutGrid],
+              ["bookings", "Bookings", PackageCheck],
+              ["activity", "Activity", History],
+            ] as const
+          ).map(([key, label, Icon]) => (
+            <li key={key}>
+              <button
+                type="button"
+                aria-current={tab === key ? "page" : undefined}
+                onClick={() => setTab(key)}
+                className={`pressable flex h-14 w-full flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold ${
+                  tab === key ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                <Icon className="size-5" />
+                {label}
+              </button>
+            </li>
+          ))}
+          <li>
+            <button
+              type="button"
+              onClick={() => setReporting(true)}
+              className="pressable flex h-14 w-full flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold text-destructive"
+            >
+              <AlertTriangle className="size-5" />
+              Report
+            </button>
+          </li>
+        </ul>
+      </nav>
+
+      {data && (
+        <Sheet open={reporting} onOpenChange={setReporting}>
+          {reporting && <ReportIssueContent data={data} onClose={() => setReporting(false)} />}
+        </Sheet>
       )}
-    </main>
+    </PhoneShell>
   );
 }
+
 
 function LastReservationCard({ data }: { data: BoardData }) {
   const [id, setId] = useState<string | null>(null);
