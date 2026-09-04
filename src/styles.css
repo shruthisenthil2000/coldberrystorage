@@ -281,25 +281,36 @@
 }
 
 @layer components {
-  .device-stage {
-    background:
-      radial-gradient(circle at 50% 0%, oklch(0.93 0.01 250), var(--background) 60%);
+  .phone-stage {
+    min-height: 100dvh;
   }
-  .dark .device-stage {
-    background:
-      radial-gradient(circle at 50% 0%, oklch(0.26 0.02 260), var(--background) 60%);
-  }
-  .device-frame {
-    background-color: oklch(0.16 0.01 260);
-    border-radius: 3rem;
-    padding: 0.75rem;
-    box-shadow:
-      0 2px 6px oklch(0 0 0 / 0.25),
-      0 30px 70px oklch(0 0 0 / 0.35);
-  }
-  .device-screen {
-    background-color: var(--background);
-    border-radius: 2.25rem;
+  .phone-frame {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100dvh;
     overflow: hidden;
+    background-color: var(--background);
+  }
+
+  @media (min-width: 700px) {
+    .phone-stage {
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: radial-gradient(circle at 50% 0%, oklch(0.93 0.01 250), oklch(0.88 0.01 250) 70%);
+    }
+    .dark .phone-stage {
+      background: radial-gradient(circle at 50% 0%, oklch(0.26 0.02 260), oklch(0.16 0.01 260) 70%);
+    }
+    .phone-frame {
+      width: 400px;
+      height: min(860px, calc(100dvh - 48px));
+      border-radius: 2.75rem;
+      border: 10px solid oklch(0.17 0.01 260);
+      box-shadow:
+        0 2px 6px oklch(0 0 0 / 0.25),
+        0 30px 70px oklch(0 0 0 / 0.35);
+    }
   }
 }
