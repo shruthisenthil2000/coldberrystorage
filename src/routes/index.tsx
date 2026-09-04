@@ -323,7 +323,7 @@ function LockerCard({
         <p className="panel tone-muted min-h-12 rounded-md text-center text-sm leading-12 font-bold uppercase">
           Not available
         </p>
-      ) : open ? (
+      ) : locker.status === "AVAILABLE" && open ? (
         <Button className="min-h-12 w-full text-base font-bold" onClick={() => setSheet("reserve")}>
           Reserve
         </Button>
