@@ -1443,21 +1443,32 @@ function BookingCard({
       </div>
 
       {reservation.status === "RESERVED" && remaining && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="panel-flat p-3">
-            <p className="stat-label">Check in by</p>
-            <p className="text-xl font-semibold tabular-nums">
-              {clockTime(reservation.check_in_deadline)}
-            </p>
-            <p className="meta-text tabular-nums">{remaining} remaining</p>
+        <>
+          <p className="mt-2.5 text-sm font-medium">
+            Check in within {CHECK_IN_WINDOW_MINUTES} minutes
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className={`panel-flat p-3 ${urgent ? "border-destructive/60" : ""}`}>
+              <p className="stat-label">Check in by</p>
+              <p className="text-xl font-semibold tabular-nums">
+                {clockTime(reservation.check_in_deadline)}
+              </p>
+              <p
+                className={`text-sm font-semibold tabular-nums ${
+                  urgent ? "text-destructive" : "text-muted-foreground"
+                }`}
+              >
+                {remaining} remaining
+              </p>
+            </div>
+            <div className="panel-flat p-3">
+              <p className="stat-label">Verification code</p>
+              <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
+                {reservation.dropoff_code}
+              </p>
+            </div>
           </div>
-          <div className="panel-flat p-3">
-            <p className="stat-label">Verification code</p>
-            <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
-              {reservation.dropoff_code}
-            </p>
-          </div>
-        </div>
+        </>
       )}
 
       {(reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
