@@ -21,10 +21,16 @@ import {
   tempState,
   expireOverdueReservations,
   tempTone,
+  INCIDENT_OPTIONS,
+  INCIDENT_LABEL,
+  openIncidents,
+  reportIncident,
+  type IncidentType,
   type BoardData,
   type HarvestSlot,
   type Locker,
   type Reservation,
+
 } from "@/lib/board";
 import {
   Sheet,
@@ -792,6 +798,132 @@ function PickupContent({
   );
 }
 
+function ReportIssueContent({
+  data,
+  lockerId,
+  onClose,
+}: {
+  data: BoardData;
+  lockerId?: string;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [type, setType] = useState<IncidentType | null>(null);
+  const [picked, setPicked] = useState(lockerId ?? data.lockers[0]?.id ?? "");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+
+  const locker = data.lockers.find((l) => l.id === picked);
+  const option = INCIDENT_OPTIONS.find((o) => o.type === type);
+
+  async function submit() {
+    if (!type || !picked || saving) return;
+    setSaving(true);
+    try {
+      await reportIncident({ lockerId: picked, type, description });
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      setDone(locker?.locker_number ?? "");
+    } catch (e) {
+      toast.error(
+        `Could not report the issue. ${e instanceof Error ? e.message : "Please try again."}`,
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (done !== null) {
+    return (
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetHeader>
+          <SheetTitle className="font-display text-2xl">✓ Issue reported</SheetTitle>
+          <SheetDescription>Locker {done} has been flagged.</SheetDescription>
+        </SheetHeader>
+        <div className="space-y-3 px-4 pb-6">
+          {option?.blocks && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
+              Locker {done} will not accept new reservations until the problem is fixed. Crates
+              already stored there stay where they are.
+            </p>
+          )}
+          <Button type="button" className="min-h-12 w-full text-base font-bold" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </SheetContent>
+    );
+  }
+
+  return (
+    <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="font-display text-2xl">⚠ Report issue</SheetTitle>
+        <SheetDescription>What happened?</SheetDescription>
+      </SheetHeader>
+      <div className="space-y-4 px-4 pb-6">
+        <div className="grid gap-2" role="group" aria-label="What happened?">
+          {INCIDENT_OPTIONS.map((o) => (
+            <button
+              key={o.type}
+              type="button"
+              aria-pressed={type === o.type}
+              onClick={() => setType(o.type)}
+              className={`panel min-h-12 px-3 text-left text-base font-bold ${
+                type === o.type ? "bg-primary text-primary-foreground ring-2 ring-primary" : ""
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <label className="stat-label" htmlFor="incident-locker">
+            Locker
+          </label>
+          <select
+            id="incident-locker"
+            className="panel mt-1 min-h-12 w-full px-3 text-base font-semibold"
+            value={picked}
+            onChange={(e) => setPicked(e.target.value)}
+          >
+            {data.lockers.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.locker_number} · {l.zone}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="stat-label" htmlFor="incident-note">
+            Description (optional)
+          </label>
+          <textarea
+            id="incident-note"
+            rows={2}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Short note"
+            className="panel mt-1 w-full px-3 py-2 text-base"
+          />
+        </div>
+
+        <Button
+          type="button"
+          disabled={!type || !picked || saving}
+          className="min-h-14 w-full text-base font-bold"
+          onClick={submit}
+        >
+          {saving ? "Reporting…" : "Report issue"}
+        </Button>
+      </div>
+    </SheetContent>
+  );
+}
+
+
 function LockerCard({
   locker,
   data,
@@ -803,13 +935,12 @@ function LockerCard({
 }) {
   const used = usedCrates(locker.id, data.reservations);
   const open = isReservable(locker, data.reservations);
-  const incidents = data.incidents.filter(
-    (i) => i.locker_id === locker.id && i.status !== "RESOLVED",
-  );
+  const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
-  const [sheet, setSheet] = useState<"reserve" | "view" | null>(null);
+  const [sheet, setSheet] = useState<"reserve" | "view" | "report" | null>(null);
 
   const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
+
 
   return (
     <article className="panel flex flex-col p-4">
@@ -846,15 +977,29 @@ function LockerCard({
         <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm">
           {incidents.map((i) => (
             <p key={i.id}>
-              <span className="font-bold">{i.type}</span> — {i.description}
+              <span className="font-bold">⚠ {INCIDENT_LABEL[i.type]}</span> — {i.description}
             </p>
           ))}
+          {down && used > 0 && (
+            <p className="mt-2 font-semibold">
+              {used} crate{used === 1 ? "" : "s"} currently stored. The locker is unavailable for
+              new reservations.
+            </p>
+          )}
         </div>
       )}
 
       <div className="mt-4 flex-1" />
 
-      {down ? (
+      {down && used > 0 ? (
+        <Button
+          variant="secondary"
+          className="min-h-12 w-full text-base font-bold"
+          onClick={() => setSheet("view")}
+        >
+          View reservation
+        </Button>
+      ) : down ? (
         <p className="panel tone-muted min-h-12 rounded-md text-center text-sm leading-12 font-bold uppercase">
           Not available
         </p>
@@ -872,13 +1017,29 @@ function LockerCard({
         </Button>
       )}
 
+      <Button
+        type="button"
+        variant="ghost"
+        className="mt-2 min-h-11 w-full text-sm font-bold"
+        onClick={() => setSheet("report")}
+      >
+        ⚠ Report issue
+      </Button>
+
       <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
         {sheet === "reserve" ? (
           <ReserveSheet locker={locker} slot={slot} data={data} onClose={() => setSheet(null)} />
         ) : sheet === "view" ? (
           <ReservationSheet locker={locker} data={data} onClose={() => setSheet(null)} />
+        ) : sheet === "report" ? (
+          <ReportIssueContent
+            data={data}
+            lockerId={locker.id}
+            onClose={() => setSheet(null)}
+          />
         ) : null}
       </Sheet>
+
     </article>
   );
 }
@@ -888,6 +1049,8 @@ function Board() {
   const navigate = useNavigate({ from: "/" });
   const { data, isPending, error } = useQuery(boardQuery);
   const online = useOnline();
+  const [reporting, setReporting] = useState(false);
+
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -924,6 +1087,21 @@ function Board() {
       {data && (
         <>
           <LastReservationCard data={data} />
+
+          <Button
+            type="button"
+            variant="destructive"
+            className="mt-5 min-h-14 w-full text-base font-bold"
+            onClick={() => setReporting(true)}
+          >
+            ⚠ Report issue
+          </Button>
+          <Sheet open={reporting} onOpenChange={setReporting}>
+            {reporting && (
+              <ReportIssueContent data={data} onClose={() => setReporting(false)} />
+            )}
+          </Sheet>
+
 
           <section className="mt-5 grid grid-cols-5 gap-1.5 max-sm:grid-cols-3">
             {(
