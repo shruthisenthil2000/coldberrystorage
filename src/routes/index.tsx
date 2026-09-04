@@ -1044,67 +1044,65 @@ function LockerCard({
   const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
 
 
+  const free = locker.capacity - used;
+
   return (
     <article
-      className={`panel flex flex-col p-4 pl-5 ${statusTone(locker.status).replace("tone-", "edge-")}`}
+      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(locker.status).replace("tone-", "edge-")}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="card-title truncate">🫐 Locker {locker.locker_number}</h3>
+          <h3 className="card-title truncate">Locker {locker.locker_number}</h3>
           <p className="meta-text mt-0.5 truncate">{locker.zone}</p>
         </div>
         <Chip tone={statusTone(locker.status)}>{LOCKER_LABEL[locker.status]}</Chip>
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-sm font-medium">
-          {Number(locker.temperature).toFixed(1)} °C
-          <Chip tone={tempTone(tState)}>{tState}</Chip>
-        </span>
-        <span className="text-sm font-semibold tabular-nums">
-          {used}
-          <span className="text-muted-foreground"> / {locker.capacity} crates</span>
-        </span>
-      </div>
-
-      <div className="mt-2">
-        <CapacityBar used={used} capacity={locker.capacity} />
-      </div>
-
-      {incidents.length > 0 && (
-        <div className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
-          {incidents.map((i) => (
-            <p key={i.id}>
-              <span className="font-semibold">⚠ {INCIDENT_LABEL[i.type]}</span> — {i.description}
-            </p>
-          ))}
-          {down && used > 0 && (
-            <p className="mt-2 font-medium">
-              {used} crate{used === 1 ? "" : "s"} currently stored. The locker is unavailable for
-              new reservations.
-            </p>
+      {down ? (
+        <div className="mt-2.5 text-sm">
+          <p className="font-semibold">
+            {incidents[0] ? INCIDENT_LABEL[incidents[0].type] : "Locker unavailable"}
+          </p>
+          {incidents[0]?.description && (
+            <p className="meta-text mt-0.5">{incidents[0].description}</p>
           )}
+          <p className="meta-text mt-0.5">
+            Reservations unavailable
+            {used > 0
+              ? ` · ${used} crate${used === 1 ? "" : "s"} still stored here`
+              : ""}
+            .
+          </p>
         </div>
+      ) : (
+        <>
+          <div className="mt-2.5 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-sm font-medium">
+              {Number(locker.temperature).toFixed(1)} °C
+              <Chip tone={tempTone(tState)}>{tState}</Chip>
+            </span>
+            <span className="text-sm font-semibold tabular-nums">
+              {free}
+              <span className="text-muted-foreground"> of {locker.capacity} crates free</span>
+            </span>
+          </div>
+          <div className="mt-1.5">
+            <CapacityBar used={used} capacity={locker.capacity} />
+          </div>
+        </>
       )}
 
-      <div className="mt-4 grid gap-2">
-        {down && used > 0 ? (
-          <Button
-            variant="secondary"
-            className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
-            onClick={() => setSheet("view")}
-          >
-            View reservation
-          </Button>
-        ) : down ? (
-          <div className="panel-flat p-3 text-sm shadow-none">
-            <p className="font-semibold">Out of service</p>
-            <p className="meta-text mt-0.5">
-              {incidents[0]
-                ? `${INCIDENT_LABEL[incidents[0].type]} reported — reservations unavailable.`
-                : "Reservations unavailable until this locker is checked."}
-            </p>
-          </div>
+      <div className="mt-3 grid gap-2">
+        {down ? (
+          used > 0 ? (
+            <Button
+              variant="secondary"
+              className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
+              onClick={() => setSheet("view")}
+            >
+              View stored crates
+            </Button>
+          ) : null
         ) : (
           <>
             {open && (
@@ -1138,7 +1136,7 @@ function LockerCard({
           className="pressable h-11 w-full rounded-xl text-sm font-medium text-muted-foreground"
           onClick={() => setSheet("report")}
         >
-          ⚠ Report issue
+          Report issue
         </Button>
       </div>
 
