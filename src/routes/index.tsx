@@ -1043,43 +1043,37 @@ function LockerCard({
   return (
     <article className="panel flex flex-col p-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-display text-3xl leading-none font-bold tracking-tight">
-            {locker.locker_number}
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">{locker.zone}</p>
+        <div className="min-w-0">
+          <h3 className="card-title truncate">Locker {locker.locker_number}</h3>
+          <p className="meta-text mt-0.5 truncate">{locker.zone}</p>
         </div>
         <Chip tone={statusTone(locker.status)}>{LOCKER_LABEL[locker.status]}</Chip>
       </div>
 
-      <div className="mt-4 flex items-baseline justify-between">
-        <span className="stat-label">Crates</span>
-        <span className="font-display text-2xl font-bold">
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-sm font-medium">
+          {Number(locker.temperature).toFixed(1)} °C
+          <Chip tone={tempTone(tState)}>{tState}</Chip>
+        </span>
+        <span className="text-sm font-semibold tabular-nums">
           {used}
-          <span className="text-muted-foreground">/{locker.capacity}</span>
+          <span className="text-muted-foreground"> / {locker.capacity} crates</span>
         </span>
       </div>
-      <div className="mt-1.5">
+
+      <div className="mt-2">
         <CapacityBar used={used} capacity={locker.capacity} />
       </div>
 
-      <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-        <span className="stat-label">Temp</span>
-        <span className="flex items-center gap-2">
-          <span className="font-bold">{Number(locker.temperature).toFixed(1)} °C</span>
-          <Chip tone={tempTone(tState)}>{tState}</Chip>
-        </span>
-      </div>
-
       {incidents.length > 0 && (
-        <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm">
+        <div className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
           {incidents.map((i) => (
             <p key={i.id}>
-              <span className="font-bold">⚠ {INCIDENT_LABEL[i.type]}</span> — {i.description}
+              <span className="font-semibold">⚠ {INCIDENT_LABEL[i.type]}</span> — {i.description}
             </p>
           ))}
           {down && used > 0 && (
-            <p className="mt-2 font-semibold">
+            <p className="mt-2 font-medium">
               {used} crate{used === 1 ? "" : "s"} currently stored. The locker is unavailable for
               new reservations.
             </p>
@@ -1087,56 +1081,55 @@ function LockerCard({
         </div>
       )}
 
-      <div className="mt-4 flex-1" />
+      <div className="mt-4 grid gap-2">
+        {down && used > 0 ? (
+          <Button
+            variant="secondary"
+            className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
+            onClick={() => setSheet("view")}
+          >
+            View reservation
+          </Button>
+        ) : down ? (
+          <p className="panel-flat flex h-12 items-center justify-center text-sm font-medium text-muted-foreground shadow-none">
+            Not available
+          </p>
+        ) : (
+          <>
+            {open && (
+              <Button
+                className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
+                onClick={() => setSheet("reserve")}
+              >
+                Reserve
+              </Button>
+            )}
+            {used > 0 && (
+              <Button
+                variant="outline"
+                className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
+                onClick={() => setSheet("view")}
+              >
+                {locker.status === "IN_STORAGE" ? "View storage" : "View reservation"}
+              </Button>
+            )}
+            {!open && used === 0 && (
+              <p className="panel-flat flex h-12 items-center justify-center text-sm font-medium text-muted-foreground shadow-none">
+                Full
+              </p>
+            )}
+          </>
+        )}
 
-      {down && used > 0 ? (
         <Button
-          variant="secondary"
-          className="min-h-12 w-full text-base font-bold"
-          onClick={() => setSheet("view")}
+          type="button"
+          variant="ghost"
+          className="pressable h-11 w-full rounded-xl text-sm font-medium text-muted-foreground"
+          onClick={() => setSheet("report")}
         >
-          View reservation
+          ⚠ Report issue
         </Button>
-      ) : down ? (
-        <p className="panel tone-muted min-h-12 rounded-md text-center text-sm leading-12 font-bold uppercase">
-          Not available
-        </p>
-      ) : (
-        <div className="grid gap-2">
-          {open && (
-            <Button
-              className="min-h-12 w-full text-base font-bold"
-              onClick={() => setSheet("reserve")}
-            >
-              Reserve
-            </Button>
-          )}
-          {used > 0 && (
-            <Button
-              variant="secondary"
-              className="min-h-12 w-full text-base font-bold"
-              onClick={() => setSheet("view")}
-            >
-              {locker.status === "IN_STORAGE" ? "View storage" : "View reservation"}
-            </Button>
-          )}
-          {!open && used === 0 && (
-            <p className="panel tone-muted min-h-12 rounded-md text-center text-sm leading-12 font-bold uppercase">
-              Full
-            </p>
-          )}
-        </div>
-      )}
-
-
-      <Button
-        type="button"
-        variant="ghost"
-        className="mt-2 min-h-11 w-full text-sm font-bold"
-        onClick={() => setSheet("report")}
-      >
-        ⚠ Report issue
-      </Button>
+      </div>
 
       <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
         {sheet === "reserve" ? (
@@ -1159,6 +1152,7 @@ function LockerCard({
     </article>
   );
 }
+
 
 function Board() {
   const { slot } = Route.useSearch();
