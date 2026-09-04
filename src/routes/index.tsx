@@ -23,6 +23,9 @@ import {
   CHECK_IN_WINDOW_MINUTES,
   statusTone,
   tempState,
+  TEMP_LABEL,
+  availabilityLabel,
+
   expireOverdueReservations,
   tempTone,
   INCIDENT_OPTIONS,
@@ -1108,7 +1111,10 @@ function LockerCard({
           <h3 className="card-title truncate">Locker {locker.locker_number}</h3>
           <p className="meta-text mt-0.5 truncate">{locker.zone}</p>
         </div>
-        <Chip tone={statusTone(locker.status)}>{LOCKER_LABEL[locker.status]}</Chip>
+        <Chip tone={statusTone(locker.status)}>
+          {availabilityLabel(locker, data.reservations, slot)}
+        </Chip>
+
       </div>
 
       {down ? (
@@ -1120,9 +1126,9 @@ function LockerCard({
             <p className="meta-text mt-0.5">{incidents[0].description}</p>
           )}
           <p className="meta-text mt-0.5">
-            Reservations unavailable
+            New reservations blocked
             {used > 0
-              ? ` · ${used} crate${used === 1 ? "" : "s"} still stored here`
+              ? ` · ${used} crate${used === 1 ? "" : "s"} still stored here — crates may need attention`
               : ""}
             .
           </p>
@@ -1132,13 +1138,13 @@ function LockerCard({
           <div className="mt-2.5 flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-sm font-medium">
               {Number(locker.temperature).toFixed(1)} °C
-              <Chip tone={tempTone(tState)}>{tState}</Chip>
+              <Chip tone={tempTone(tState)}>{TEMP_LABEL[tState]}</Chip>
             </span>
             <span className="text-sm font-semibold tabular-nums">
-              {free}
+              {free}/{locker.capacity}
               <span className="text-muted-foreground">
                 {" "}
-                of {locker.capacity} free · {SLOT_LABEL[slot].toLowerCase()}
+                crates free · {SLOT_LABEL[slot].toLowerCase()}
               </span>
             </span>
           </div>
@@ -1175,13 +1181,18 @@ function LockerCard({
                 Reserve
               </Button>
             )}
-            {!open && used === 0 && (
-              <p className="panel-flat flex h-12 items-center justify-center text-sm font-medium text-muted-foreground shadow-none">
-                Full
-              </p>
+            {!open && (
+              <div className="panel-flat px-3 py-2.5 text-center shadow-none">
+                <p className="text-sm font-semibold">No crates available</p>
+                <p className="meta-text mt-0.5">
+                  Try another locker or the{" "}
+                  {SLOT_LABEL[slot === "MORNING" ? "AFTERNOON" : "MORNING"].toLowerCase()} slot.
+                </p>
+              </div>
             )}
           </>
         )}
+
 
         <div className={`grid gap-2 ${!down && used > 0 ? "grid-cols-2" : "grid-cols-1"}`}>
           {!down && used > 0 && (
@@ -1245,9 +1256,10 @@ function Board() {
   // When the connection comes back, pull authoritative locker/reservation state.
   useEffect(() => {
     async function onBackOnline() {
-      toast.success("Back online — syncing changes…");
+      toast.success("Back online · Syncing changes…");
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
-      toast.success("Synced");
+      toast.success("Back online · Synced");
+
     }
     window.addEventListener("online", onBackOnline);
     return () => window.removeEventListener("online", onBackOnline);
@@ -1292,10 +1304,11 @@ function Board() {
               <p className="text-sm">
                 <span className="flex items-center gap-2 font-semibold">
                   <span className="size-2.5 rounded-full tone-booked" aria-hidden="true" />
-                  Offline
+                  Offline · Changes saved locally
                 </span>
                 <span className="meta-text mt-0.5 block">
                   Showing saved information · last synced {agoLabel(data.syncedAt, now)}
+
                 </span>
 
               </p>

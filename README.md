@@ -111,7 +111,27 @@ In-app only — no SMS, no push, no paid messaging. Toasts confirm reservations,
 moves, drop-off, pickup, expiry, incident reports, and connection changes.
 
 
+## 9d. Trade-offs and edge cases (summary)
+
+These are deliberate product decisions, not gaps:
+
+- **45-minute automatic expiry** — an unclaimed reservation releases its crates
+  automatically, so no-shows never block shared community capacity.
+- **Full lockers cannot be overbooked** — a locker with no free crates for the
+  selected slot shows "No crates available" and offers another locker or slot;
+  the reserve action is blocked in the UI and re-checked against the database.
+- **Failed or damaged lockers become unavailable** — a cooling failure, high
+  temperature or damage report marks the locker unavailable for new reservations
+  and shows the reason on the locker card.
+- **Offline actions are cached locally** — the last synced board is kept in the
+  browser and shown as "Offline · Changes saved locally"; when the connection
+  returns the app resyncs and confirms "Back online · Synced".
+- **Existing crates are not automatically relocated after an incident** — moving
+  real crates needs physical confirmation by a worker, so the app only warns that
+  stored crates may need attention rather than silently reassigning them.
+
 ## 10. Deliberately not built
+
 
 - Accounts and authentication — the demo runs as a single known farmer.
 - SMS/push notifications (paid messaging APIs are out of scope).
