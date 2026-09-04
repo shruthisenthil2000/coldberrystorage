@@ -312,6 +312,8 @@ export type IncidentOption = {
    * locker bookable (minor issues are logged only).
    */
   blocks: LockerStatus | null;
+  /** Color cue: warn = caution, down = out of service, muted = logged only. */
+  tone: "warn" | "down" | "muted";
 };
 
 export const INCIDENT_OPTIONS: IncidentOption[] = [
