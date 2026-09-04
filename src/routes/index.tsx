@@ -1149,10 +1149,21 @@ function LockerCard({
 function Board() {
   const { slot } = Route.useSearch();
   const navigate = useNavigate({ from: "/" });
-  const { data, isPending, error } = useQuery(boardQuery);
+  const queryClient = useQueryClient();
+  const { data, isPending, error, refetch, isFetching } = useQuery(boardQuery);
   const online = useOnline();
   const [reporting, setReporting] = useState(false);
 
+  // When the connection comes back, pull authoritative locker/reservation state.
+  useEffect(() => {
+    function onBackOnline() {
+      queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+    }
+    window.addEventListener("online", onBackOnline);
+    return () => window.removeEventListener("online", onBackOnline);
+  }, [queryClient]);
+
+  const stale = !online || data?.fromCache === true;
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -1171,13 +1182,33 @@ function Board() {
           <p className="mt-1 text-sm text-muted-foreground">{today}</p>
         </div>
         <span
-          className={`status-chip ${online ? "tone-free" : "tone-down"}`}
+          className={`status-chip ${online ? "tone-free" : "tone-booked"}`}
           role="status"
         >
           {online ? <Wifi className="size-3.5" /> : <WifiOff className="size-3.5" />}
-          {online ? "Online" : "Offline"}
+          {online ? "🟢 Online" : "🟡 Offline"}
         </span>
       </header>
+
+      {stale && data && (
+        <div className="panel mt-3 flex items-center justify-between gap-3 border-2 border-warning/60 p-3">
+          <p className="text-sm font-semibold">
+            Showing data cached at {clockTime(data.syncedAt)}.
+            <span className="block font-normal text-muted-foreground">
+              New reservations need a connection.
+            </span>
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-h-11 shrink-0 font-bold"
+            disabled={isFetching}
+            onClick={() => refetch()}
+          >
+            {isFetching ? "Checking…" : "Retry"}
+          </Button>
+        </div>
+      )}
 
       {isPending && <p className="mt-8 text-muted-foreground">Loading the board…</p>}
       {error && (
@@ -1185,6 +1216,7 @@ function Board() {
           The board couldn't load. Check your connection and pull to refresh.
         </p>
       )}
+
 
       {data && (
         <>
