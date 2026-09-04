@@ -1411,6 +1411,7 @@ function BookingCard({
   const status = displayStatus(reservation, now);
   const remaining =
     reservation.status === "RESERVED" ? formatCountdown(reservation.check_in_deadline, now) : null;
+  const urgent = reservation.status === "RESERVED" && isCheckInUrgent(reservation.check_in_deadline, now);
   const lockerDown = locker?.status === "BREAKDOWN" || locker?.status === "MAINTENANCE";
   const incidents = locker ? openIncidents(locker.id, data.incidents) : [];
 
