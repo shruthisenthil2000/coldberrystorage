@@ -16,6 +16,7 @@ import {
   shortTime,
   checkInDeadline,
   clockTime,
+  isCheckInUrgent,
   CHECK_IN_WINDOW_MINUTES,
   statusTone,
   tempState,
