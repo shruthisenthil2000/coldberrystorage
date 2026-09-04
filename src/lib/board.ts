@@ -78,6 +78,40 @@ export const RESERVATION_LABEL: Record<ReservationStatus, string> = {
   CANCELLED: "Cancelled",
 };
 
+export type TempState = "SAFE" | "CHECK" | "ALERT";
+
+export function tempState(temperature: number): TempState {
+  if (temperature > 5) return "ALERT";
+  if (temperature > 4) return "CHECK";
+  return "SAFE";
+}
+
+export function tempTone(state: TempState): string {
+  switch (state) {
+    case "SAFE":
+      return "tone-free";
+    case "CHECK":
+      return "tone-booked";
+    case "ALERT":
+      return "tone-down";
+  }
+}
+
+export type HarvestSlot = "MORNING" | "AFTERNOON";
+
+export const SLOT_LABEL: Record<HarvestSlot, string> = {
+  MORNING: "Morning",
+  AFTERNOON: "Afternoon",
+};
+
+/** Local time by which a reservation for the given slot must be dropped off today. */
+export function slotDeadline(slot: HarvestSlot): string {
+  const d = new Date();
+  d.setHours(slot === "MORNING" ? 12 : 18, 0, 0, 0);
+  if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1);
+  return d.toISOString();
+}
+
 export function statusTone(status: LockerStatus): string {
   switch (status) {
     case "AVAILABLE":
