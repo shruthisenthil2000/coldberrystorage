@@ -1454,7 +1454,7 @@ function BookingCard({
 }) {
   const now = useNow();
   const queryClient = useQueryClient();
-  const [sheet, setSheet] = useState<"dropoff" | "pickup" | null>(null);
+  const [sheet, setSheet] = useState<"dropoff" | "pickup" | "move" | null>(null);
   const locker = data.lockers.find((l) => l.id === reservation.locker_id);
   const farmer = data.farmers.find((f) => f.id === reservation.farmer_id);
   const status = displayStatus(reservation, now);
