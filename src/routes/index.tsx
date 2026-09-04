@@ -1130,12 +1130,21 @@ function LockerCard({
             </span>
             <span className="text-sm font-semibold tabular-nums">
               {free}
-              <span className="text-muted-foreground"> of {locker.capacity} crates free</span>
+              <span className="text-muted-foreground">
+                {" "}
+                of {locker.capacity} free · {SLOT_LABEL[slot].toLowerCase()}
+              </span>
             </span>
           </div>
           <div className="mt-1.5">
             <CapacityBar used={used} capacity={locker.capacity} />
           </div>
+          {storedAll > used && (
+            <p className="meta-text mt-1">
+              {storedAll - used} crate{storedAll - used === 1 ? "" : "s"} held here in the other slot
+            </p>
+          )}
+
         </>
       )}
 
