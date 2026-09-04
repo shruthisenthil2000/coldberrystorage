@@ -112,21 +112,85 @@ export const boardQuery = {
 };
 
 
-/** Crates committed to a locker by reservations that still occupy space. */
-export function usedCrates(lockerId: string, reservations: Reservation[]): number {
+/**
+ * Crates committed to a locker by reservations that still occupy space.
+ * Capacity is tracked per harvest slot: a morning booking does not consume
+ * afternoon space. Pass no slot to count every slot together.
+ */
+export function usedCrates(
+  lockerId: string,
+  reservations: Reservation[],
+  slot?: HarvestSlot,
+): number {
   return reservations
-    .filter((r) => r.locker_id === lockerId && ACTIVE_RESERVATION_STATUSES.includes(r.status))
+    .filter(
+      (r) =>
+        r.locker_id === lockerId &&
+        ACTIVE_RESERVATION_STATUSES.includes(r.status) &&
+        (slot === undefined || r.slot === slot),
+    )
     .reduce((sum, r) => sum + r.crate_count, 0);
 }
 
-export function freeCrates(locker: Locker, reservations: Reservation[]): number {
-  return Math.max(0, locker.capacity - usedCrates(locker.id, reservations));
+export function freeCrates(
+  locker: Locker,
+  reservations: Reservation[],
+  slot?: HarvestSlot,
+): number {
+  return Math.max(0, locker.capacity - usedCrates(locker.id, reservations, slot));
 }
 
-export function isReservable(locker: Locker, reservations: Reservation[]): boolean {
+export function isReservable(
+  locker: Locker,
+  reservations: Reservation[],
+  slot?: HarvestSlot,
+): boolean {
   if (locker.status === "MAINTENANCE" || locker.status === "BREAKDOWN") return false;
-  return freeCrates(locker, reservations) > 0;
+  return freeCrates(locker, reservations, slot) > 0;
 }
+
+/** Headline numbers for the selected harvest slot. */
+export function slotSummary(data: BoardData, slot: HarvestSlot) {
+  const usable = data.lockers.filter((l) => !isOutOfService(l));
+  const lockersFree = usable.filter((l) => freeCrates(l, data.reservations, slot) > 0).length;
+  const cratesFree = usable.reduce((sum, l) => sum + freeCrates(l, data.reservations, slot), 0);
+  return { lockersFree, cratesFree, outOfService: data.lockers.length - usable.length };
+}
+
+/** "just now" / "12s ago" / "4 min ago" — for the live sync indicator. */
+export function agoLabel(iso: string, now: number = Date.now()): string {
+  const secs = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
+  if (secs < 10) return "just now";
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins} min ago`;
+  return `${Math.round(mins / 60)} h ago`;
+}
+
+/**
+ * Move a still-RESERVED booking to another locker after a breakdown. The
+ * original locker is recorded so the move stays auditable.
+ */
+export async function moveReservation(
+  reservation: Reservation,
+  targetLockerId: string,
+): Promise<Reservation> {
+  const { data, error } = await supabase
+    .from("reservations")
+    .update({
+      locker_id: targetLockerId,
+      moved_from_locker_id: reservation.locker_id,
+      moved_at: new Date().toISOString(),
+    })
+    .eq("id", reservation.id)
+    .eq("status", "RESERVED")
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("This booking can no longer be moved.");
+  return data;
+}
+
 
 /** The only four locker states the farmer ever sees. */
 export const LOCKER_LABEL: Record<LockerStatus, string> = {
@@ -408,6 +472,16 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
       detail: `Locker ${lockerOf(r.locker_id)} · ${crates} · ${farmerOf(r.farmer_id)}`,
       tone: "tone-booked",
     });
+    if (r.moved_at && r.moved_from_locker_id) {
+      events.push({
+        id: `${r.id}-moved`,
+        at: r.moved_at,
+        title: "Reservation moved",
+        detail: `${lockerOf(r.moved_from_locker_id)} → ${lockerOf(r.locker_id)} · ${crates}`,
+        tone: "tone-booked",
+      });
+    }
+
     if (r.checked_in_at) {
       events.push({
         id: `${r.id}-checkin`,

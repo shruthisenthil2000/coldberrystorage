@@ -8,7 +8,12 @@ import {
   boardQuery,
   freeCrates,
   isReservable,
+  isOutOfService,
+  slotSummary,
+  agoLabel,
+  moveReservation,
   usedCrates,
+
   LOCKER_LABEL,
   SLOT_LABEL,
   shortTime,
@@ -129,15 +134,22 @@ function ReserveSheet({
 }) {
   const queryClient = useQueryClient();
   const [liveFreeCrates, setLiveFreeCrates] = useState<number | null>(null);
-  const free = liveFreeCrates ?? freeCrates(locker, data.reservations);
   const [farmerId, setFarmerId] = useState(data.farmers[0]?.id ?? "");
   const [pickedSlot, setPickedSlot] = useState<HarvestSlot>(slot);
-  const [crates, setCrates] = useState(Math.min(1, freeCrates(locker, data.reservations)));
+  // Capacity is per harvest slot, so the numbers follow the chosen slot.
+  const free = liveFreeCrates ?? freeCrates(locker, data.reservations, pickedSlot);
+  const [crates, setCrates] = useState(1);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<Reservation | null>(null);
   const [showBooking, setShowBooking] = useState(false);
   const [shortfall, setShortfall] = useState<number | null>(null);
   const tState = tempState(Number(locker.temperature));
+
+  // Never let the crate count exceed what the chosen slot still has free.
+  useEffect(() => {
+    setCrates((c) => Math.max(1, Math.min(c, Math.max(1, free))));
+  }, [free]);
+
 
   // The database is the authority on capacity: it re-checks under a row lock and
   // reports the real number of free crates as "CAPACITY:<n>".
@@ -160,7 +172,7 @@ function ReserveSheet({
 
     const stillOpen =
       freshLocker && freshLocker.status !== "MAINTENANCE" && freshLocker.status !== "BREAKDOWN";
-    const liveFree = freshLocker ? freeCrates(freshLocker, freshRes ?? []) : 0;
+    const liveFree = freshLocker ? freeCrates(freshLocker, freshRes ?? [], pickedSlot) : 0;
     setLiveFreeCrates(liveFree);
 
     if (!stillOpen) {
@@ -211,6 +223,12 @@ function ReserveSheet({
       /* storage unavailable — confirmation still shows now */
     }
     setDone(created);
+    toast.success(
+      `Reservation confirmed · Locker ${locker.locker_number} · ${created.crate_count} crate${
+        created.crate_count === 1 ? "" : "s"
+      } — check in within ${CHECK_IN_WINDOW_MINUTES} minutes.`,
+    );
+
     await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
   }
 
@@ -292,9 +310,10 @@ function ReserveSheet({
       <SheetHeader>
         <SheetTitle className="text-xl font-semibold">Locker {locker.locker_number}</SheetTitle>
         <SheetDescription>
-          {free} / {locker.capacity} crates available · {Number(locker.temperature).toFixed(1)} °C ·{" "}
-          {tState}
+          {free} of {locker.capacity} crates free in {SLOT_LABEL[pickedSlot].toLowerCase()} ·{" "}
+          {Number(locker.temperature).toFixed(1)} °C · {tState}
         </SheetDescription>
+
       </SheetHeader>
 
       <div className="space-y-5 px-4 pb-6">
@@ -325,16 +344,23 @@ function ReserveSheet({
                 key={s}
                 type="button"
                 aria-pressed={pickedSlot === s}
-                onClick={() => setPickedSlot(s)}
-                className={`panel pressable min-h-[52px] rounded-xl text-[15px] font-semibold ${
+                onClick={() => {
+                  setPickedSlot(s);
+                  setLiveFreeCrates(null);
+                }}
+                className={`panel pressable min-h-[52px] rounded-xl text-[13px] font-semibold leading-tight ${
                   pickedSlot === s ? "ring-2 ring-primary bg-primary text-primary-foreground" : ""
                 }`}
               >
-                {SLOT_LABEL[s]}
+                <span className="block">{SLOT_LABEL[s]}</span>
+                <span className="block text-[11px] font-medium opacity-80">
+                  {freeCrates(locker, data.reservations, s)} crates free
+                </span>
               </button>
             ))}
           </div>
         </div>
+
 
         <div>
           <p className="stat-label mb-2">Crates</p>
@@ -1051,8 +1077,10 @@ function LockerCard({
   data: BoardData;
   slot: HarvestSlot;
 }) {
-  const used = usedCrates(locker.id, data.reservations);
-  const open = isReservable(locker, data.reservations);
+  // Capacity is tracked per harvest slot.
+  const used = usedCrates(locker.id, data.reservations, slot);
+  const storedAll = usedCrates(locker.id, data.reservations);
+  const open = isReservable(locker, data.reservations, slot);
   const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
   const online = useOnline();
@@ -1062,7 +1090,8 @@ function LockerCard({
   const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
 
 
-  const free = locker.capacity - used;
+  const free = Math.max(0, locker.capacity - used);
+
 
   return (
     <article
@@ -1101,12 +1130,21 @@ function LockerCard({
             </span>
             <span className="text-sm font-semibold tabular-nums">
               {free}
-              <span className="text-muted-foreground"> of {locker.capacity} crates free</span>
+              <span className="text-muted-foreground">
+                {" "}
+                of {locker.capacity} free · {SLOT_LABEL[slot].toLowerCase()}
+              </span>
             </span>
           </div>
           <div className="mt-1.5">
             <CapacityBar used={used} capacity={locker.capacity} />
           </div>
+          {storedAll > used && (
+            <p className="meta-text mt-1">
+              {storedAll - used} crate{storedAll - used === 1 ? "" : "s"} held here in the other slot
+            </p>
+          )}
+
         </>
       )}
 
@@ -1194,6 +1232,8 @@ function Board() {
   const { theme, toggle } = useTheme();
   const [reporting, setReporting] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
+  const now = useNow();
+
 
   // When the connection comes back, pull authoritative locker/reservation state.
   useEffect(() => {
@@ -1248,8 +1288,9 @@ function Board() {
                   Offline
                 </span>
                 <span className="meta-text mt-0.5 block">
-                  Showing saved information · last synced {clockTime(data.syncedAt)}
+                  Showing saved information · last synced {agoLabel(data.syncedAt, now)}
                 </span>
+
               </p>
               <Button
                 type="button"
@@ -1264,8 +1305,9 @@ function Board() {
           ) : (
             <p className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <span className="size-2 rounded-full tone-free" aria-hidden="true" />
-              {isFetching ? "Syncing…" : `Synced ${clockTime(data.syncedAt)}`}
+              {isFetching ? "Syncing…" : `Live · synced ${agoLabel(data.syncedAt, now)}`}
             </p>
+
           )
         )}
 
@@ -1339,12 +1381,45 @@ function Board() {
               </div>
             </section>
 
+            {(() => {
+              const s = slotSummary(data, slot);
+              return (
+                <section
+                  className="panel mt-5 flex items-center justify-between gap-3 p-3.5"
+                  aria-label="Capacity for the selected slot"
+                >
+                  <div className="min-w-0">
+                    <p className="stat-label">{SLOT_LABEL[slot]} capacity</p>
+                    <p className="mt-0.5 text-lg leading-tight font-semibold tabular-nums">
+                      {s.cratesFree} crates free
+                    </p>
+                    <p className="meta-text">
+                      {s.lockersFree} locker{s.lockersFree === 1 ? "" : "s"} with room
+                      {s.outOfService > 0 ? ` · ${s.outOfService} out of service` : ""}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                      s.cratesFree > 0 ? "tone-free" : "tone-down"
+                    }`}
+                  >
+                    {s.cratesFree > 0 ? "Space available" : "Full"}
+                  </span>
+                </section>
+              );
+            })()}
+
             <section className="mt-5 grid gap-3">
               <h2 className="section-heading">Lockers</h2>
               {data.lockers.map((locker) => (
                 <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
               ))}
+              <p className="meta-text mt-1 px-0.5">
+                Fair allocation: first come, first served. Reservations that are not checked in
+                within {CHECK_IN_WINDOW_MINUTES} minutes are released back to the community.
+              </p>
             </section>
+
           </>
         )}
 
@@ -1425,7 +1500,7 @@ function BookingCard({
 }) {
   const now = useNow();
   const queryClient = useQueryClient();
-  const [sheet, setSheet] = useState<"dropoff" | "pickup" | null>(null);
+  const [sheet, setSheet] = useState<"dropoff" | "pickup" | "move" | null>(null);
   const locker = data.lockers.find((l) => l.id === reservation.locker_id);
   const farmer = data.farmers.find((f) => f.id === reservation.farmer_id);
   const status = displayStatus(reservation, now);
@@ -1481,7 +1556,7 @@ function BookingCard({
               </p>
               <p
                 className={`text-sm font-semibold tabular-nums ${
-                  urgent ? "text-destructive" : "text-muted-foreground"
+                  urgent ? "text-destructive" : "text-booked"
                 }`}
               >
                 {remaining} remaining
@@ -1489,13 +1564,14 @@ function BookingCard({
             </div>
             <div className="panel-flat p-3">
               <p className="stat-label">Verification code</p>
-              <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
+              <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums text-stored">
                 {reservation.dropoff_code}
               </p>
             </div>
           </div>
         </>
       )}
+
 
       {(reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1505,7 +1581,7 @@ function BookingCard({
           </div>
           <div className="panel-flat p-3">
             <p className="stat-label">Pickup code</p>
-            <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums">
+            <p className="text-2xl font-semibold tracking-[0.2em] tabular-nums text-stored">
               {reservation.pickup_code}
             </p>
           </div>
@@ -1529,22 +1605,42 @@ function BookingCard({
       )}
 
       {lockerDown && ACTIVE_RESERVATION_STATUSES.includes(reservation.status) && (
-        <p className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
-          ⚠ Locker {locker?.locker_number} is out of service
-          {incidents[0] ? ` — ${INCIDENT_LABEL[incidents[0].type]}` : ""}. Your crates are safe and
-          this booking is kept. Reserve another locker on Home if you need to move them.
-        </p>
+        <div className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          <p className="font-semibold">
+            ⚠ Your locker is unavailable · Locker {locker?.locker_number}
+          </p>
+          {incidents[0] && (
+            <p className="mt-0.5">{INCIDENT_LABEL[incidents[0].type]} reported</p>
+          )}
+          {reservation.status === "RESERVED" ? (
+            <>
+              <p className="mt-0.5 text-muted-foreground">Your reservation needs to be moved.</p>
+              <Button
+                type="button"
+                className="pressable mt-2.5 h-12 w-full rounded-xl text-[15px] font-semibold"
+                onClick={() => setSheet("move")}
+              >
+                Move reservation
+              </Button>
+            </>
+          ) : (
+            <p className="mt-0.5 text-muted-foreground">
+              Your crates are safe and this booking is kept. Staff have been alerted.
+            </p>
+          )}
+        </div>
       )}
 
-      {locker && reservation.status === "RESERVED" && remaining && (
+      {locker && reservation.status === "RESERVED" && remaining && !lockerDown && (
         <Button
           type="button"
-          className="pressable btn-gradient mt-3 h-14 w-full rounded-xl text-base font-semibold"
+          className="pressable mt-3 h-14 w-full rounded-xl bg-free text-base font-semibold text-free-foreground hover:bg-free/90"
           onClick={() => setSheet("dropoff")}
         >
           Check in / Drop off
         </Button>
       )}
+
       {locker && (reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
         <Button
           type="button"
@@ -1572,7 +1668,15 @@ function BookingCard({
               onBack={() => setSheet(null)}
               onClose={() => setSheet(null)}
             />
+          ) : sheet === "move" ? (
+            <MoveContent
+              locker={locker}
+              reservation={reservation}
+              data={data}
+              onClose={() => setSheet(null)}
+            />
           ) : null}
+
         </Sheet>
       )}
     </article>
@@ -1725,5 +1829,106 @@ function Countdown({ deadline }: { deadline: string }) {
         back to community storage.
       </p>
     </div>
+  );
+}
+
+/**
+ * Emergency re-booking: a still-RESERVED booking whose locker went out of
+ * service can be moved to another locker with room in the same harvest slot.
+ * The booking is never silently deleted.
+ */
+function MoveContent({
+  locker,
+  reservation,
+  data,
+  onClose,
+}: {
+  locker: Locker;
+  reservation: Reservation;
+  data: BoardData;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState<string | null>(null);
+  const slot = reservation.slot as HarvestSlot;
+
+  const options = data.lockers
+    .filter(
+      (l) =>
+        l.id !== locker.id &&
+        !isOutOfService(l) &&
+        freeCrates(l, data.reservations, slot) >= reservation.crate_count,
+    )
+    .sort(
+      (a, b) =>
+        freeCrates(b, data.reservations, slot) - freeCrates(a, data.reservations, slot),
+    );
+
+  async function move(targetId: string, label: string) {
+    if (saving) return;
+    setSaving(targetId);
+    try {
+      await moveReservation(reservation, targetId);
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      toast.success(`Reservation moved to Locker ${label}. Your code stays the same.`);
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The booking could not be moved.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  return (
+    <SheetContent side="bottom" className="rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="text-xl font-semibold">Move reservation</SheetTitle>
+        <SheetDescription>
+          Locker {locker.locker_number} is out of service. Pick another locker with room for{" "}
+          {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} in the{" "}
+          {(SLOT_LABEL[slot] ?? slot).toLowerCase()} slot.
+        </SheetDescription>
+      </SheetHeader>
+
+      <div className="grid gap-3 px-4 pb-6">
+        {options.length === 0 ? (
+          <p className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
+            No suitable storage is currently available. Your booking is kept — try again shortly or
+            report it to the shed keeper.
+          </p>
+        ) : (
+          options.map((l) => {
+            const free = freeCrates(l, data.reservations, slot);
+            const t = tempState(Number(l.temperature));
+            return (
+              <div key={l.id} className="panel-flat p-3">
+                <p className="text-sm font-semibold">
+                  Locker {l.locker_number} · {free} crate{free === 1 ? "" : "s"} available
+                </p>
+                <p className="meta-text mt-0.5">
+                  {l.zone} · {Number(l.temperature).toFixed(1)} °C · {t}
+                </p>
+                <Button
+                  type="button"
+                  disabled={saving !== null}
+                  className="pressable mt-2 h-12 w-full rounded-xl text-[15px] font-semibold"
+                  onClick={() => void move(l.id, l.locker_number)}
+                >
+                  {saving === l.id ? "Moving…" : "Move here"}
+                </Button>
+              </div>
+            );
+          })
+        )}
+        <Button
+          type="button"
+          variant="secondary"
+          className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
+          onClick={onClose}
+        >
+          Keep it here for now
+        </Button>
+      </div>
+    </SheetContent>
   );
 }

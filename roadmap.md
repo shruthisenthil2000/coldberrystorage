@@ -11,3 +11,5 @@
   - [ ] Bottom navigation (max 4)
   - [ ] Subtle offline indicator
   - [ ] Re-verify all screens light + dark, narrow viewport, build/type checks
+- [ ] Phase 11 — challenge alignment: per-slot capacity, live sync label, move-reservation flow, fair-allocation note, README
+- [ ] Home colours: countdown amber, verification code blue, check-in button green

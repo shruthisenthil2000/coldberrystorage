@@ -113,6 +113,8 @@ export type Database = {
           farmer_id: string
           id: string
           locker_id: string
+          moved_at: string | null
+          moved_from_locker_id: string | null
           picked_up_at: string | null
           pickup_code: string
           reserved_at: string
@@ -128,6 +130,8 @@ export type Database = {
           farmer_id: string
           id?: string
           locker_id: string
+          moved_at?: string | null
+          moved_from_locker_id?: string | null
           picked_up_at?: string | null
           pickup_code?: string
           reserved_at?: string
@@ -143,6 +147,8 @@ export type Database = {
           farmer_id?: string
           id?: string
           locker_id?: string
+          moved_at?: string | null
+          moved_from_locker_id?: string | null
           picked_up_at?: string | null
           pickup_code?: string
           reserved_at?: string
@@ -164,6 +170,13 @@ export type Database = {
             referencedRelation: "lockers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "reservations_moved_from_locker_id_fkey"
+            columns: ["moved_from_locker_id"]
+            isOneToOne: false
+            referencedRelation: "lockers"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -171,10 +184,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      locker_used_crates: {
-        Args: { _exclude?: string; _locker_id: string }
-        Returns: number
-      }
+      locker_used_crates:
+        | { Args: { _exclude?: string; _locker_id: string }; Returns: number }
+        | {
+            Args: { _exclude?: string; _locker_id: string; _slot?: string }
+            Returns: number
+          }
     }
     Enums: {
       incident_status: "OPEN" | "INVESTIGATING" | "RESOLVED"
