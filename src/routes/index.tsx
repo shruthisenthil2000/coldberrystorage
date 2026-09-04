@@ -966,7 +966,7 @@ function ReportIssueContent({
                 aria-pressed={selected}
                 onClick={() => setType(o.type)}
                 className={`panel pressable min-h-12 rounded-xl px-3 text-left text-[15px] font-medium ${
-                  selected ? `option-${o.tone}-selected ring-2 ring-${o.tone}` : `option-${o.tone}`
+                  selected ? `option-${o.tone}-selected` : `option-${o.tone}`
                 }`}
               >
                 <span className={selected ? "text-current" : ""}>{o.label}</span>
