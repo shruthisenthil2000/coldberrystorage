@@ -373,30 +373,30 @@
   .edge-muted { box-shadow: inset 4px 0 0 var(--muted-foreground), var(--shadow-card); }
 
   /* Report form incident options: tinted by severity */
-  .option-warn {
-    background-color: color-mix(in oklab, var(--warn) 12%, var(--card));
-    border-color: color-mix(in oklab, var(--warn) 40%, var(--border));
-    color: var(--warn);
+  .option-caution {
+    background-color: color-mix(in oklab, var(--booked) 14%, var(--card));
+    border-color: color-mix(in oklab, var(--booked) 42%, var(--border));
+    color: var(--booked);
   }
-  .option-warn-selected {
-    background-color: var(--warn);
-    color: var(--warn-foreground);
+  .option-caution-selected {
+    background-color: var(--booked);
+    color: var(--booked-foreground);
   }
-  .option-down {
+  .option-critical {
     background-color: color-mix(in oklab, var(--down) 12%, var(--card));
     border-color: color-mix(in oklab, var(--down) 40%, var(--border));
     color: var(--down);
   }
-  .option-down-selected {
+  .option-critical-selected {
     background-color: var(--down);
     color: var(--down-foreground);
   }
-  .option-muted {
+  .option-minor {
     background-color: color-mix(in oklab, var(--muted-foreground) 8%, var(--card));
     border-color: color-mix(in oklab, var(--muted-foreground) 30%, var(--border));
     color: var(--muted-foreground);
   }
-  .option-muted-selected {
+  .option-minor-selected {
     background-color: var(--muted);
     color: var(--muted-foreground);
   }
