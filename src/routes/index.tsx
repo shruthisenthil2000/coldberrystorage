@@ -62,6 +62,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { PhoneShell } from "@/components/PhoneShell";
+import lockerSampleImg from "@/assets/locker-sample.jpg";
 import { useTheme } from "@/lib/theme";
 import { useSyncExternalStore } from "react";
 
@@ -322,30 +323,40 @@ function ReserveSheet({
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="text-xl font-semibold">{locker.locker_number}</SheetTitle>
-        <SheetDescription>
-          {lockerSizeLabel(locker.capacity)} · {free} free in{" "}
-          {SLOT_LABEL[pickedSlot].toLowerCase()} · {Number(locker.temperature).toFixed(1)} °C ·{" "}
-          {tState}
-        </SheetDescription>
-
+        <div className="flex items-center gap-3">
+          <img
+            src={lockerSampleImg}
+            alt=""
+            width={640}
+            height={512}
+            className="h-14 w-14 shrink-0 rounded-xl border border-border object-cover"
+          />
+          <div className="min-w-0 text-left">
+            <SheetTitle className="text-xl font-semibold">{locker.locker_number}</SheetTitle>
+            <SheetDescription>
+              {lockerSizeLabel(locker.capacity)} · {free} free in{" "}
+              {SLOT_LABEL[pickedSlot].toLowerCase()} · {Number(locker.temperature).toFixed(1)} °C ·{" "}
+              {tState}
+            </SheetDescription>
+          </div>
+        </div>
       </SheetHeader>
 
-      <div className="max-h-[70vh] space-y-5 overflow-y-auto px-4 pb-6">
+      <div className="max-h-[70vh] space-y-5 overflow-y-auto px-4 pt-2 pb-6">
         <div>
           <p className="stat-label mb-2">Your farm</p>
-          <div className="grid max-h-40 gap-2 overflow-y-auto pr-1">
+          <div className="grid max-h-44 gap-2.5 overflow-y-auto pr-1">
             {data.farmers.map((f) => (
               <button
                 key={f.id}
                 type="button"
                 onClick={() => setFarmerId(f.id)}
-                className={`panel pressable min-h-12 rounded-xl px-4 text-left text-[15px] font-medium ${
+                className={`panel pressable flex min-h-12 items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-left text-[15px] font-medium ${
                   farmerId === f.id ? "ring-2 ring-primary" : ""
                 }`}
               >
-                {f.farm_name}
-                <span className="ml-2 font-normal text-muted-foreground">{f.name}</span>
+                <span className="min-w-0 truncate">{f.farm_name}</span>
+                <span className="shrink-0 font-normal text-muted-foreground">{f.name}</span>
               </button>
             ))}
           </div>
@@ -1003,7 +1014,7 @@ function ReportIssueContent({
         <SheetTitle className="text-xl font-semibold">⚠ Report issue</SheetTitle>
         <SheetDescription>What happened?</SheetDescription>
       </SheetHeader>
-      <div className="space-y-4 px-4 pb-6">
+      <div className="space-y-5 px-4 pt-2 pb-6">
         <div className="grid gap-3" role="group" aria-label="What happened?">
           {INCIDENT_OPTIONS.map((o) => {
             const selected = type === o.type;
@@ -1167,11 +1178,21 @@ function LockerCard({
       className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(locker.status).replace("tone-", "edge-")} ${open ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="card-title truncate">{locker.locker_number}</h3>
-          <p className="meta-text mt-0.5 truncate">
-            {locker.zone} · {lockerSizeLabel(locker.capacity)}
-          </p>
+        <div className="flex min-w-0 items-center gap-3">
+          <img
+            src={lockerSampleImg}
+            alt=""
+            loading="lazy"
+            width={640}
+            height={512}
+            className="h-12 w-12 shrink-0 rounded-xl border border-border object-cover"
+          />
+          <div className="min-w-0">
+            <h3 className="card-title truncate">{locker.locker_number}</h3>
+            <p className="meta-text mt-0.5 truncate">
+              {locker.zone} · {lockerSizeLabel(locker.capacity)}
+            </p>
+          </div>
         </div>
         <Chip tone={statusTone(locker.status)}>
           {availabilityLabel(locker, data.reservations, slot)}
