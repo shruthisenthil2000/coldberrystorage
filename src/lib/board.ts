@@ -216,11 +216,19 @@ export const RESERVATION_LABEL: Record<ReservationStatus, string> = {
 
 export type TempState = "SAFE" | "CHECK" | "ALERT";
 
+/** Plain-language temperature status shown on the locker card. */
+export const TEMP_LABEL: Record<TempState, string> = {
+  SAFE: "Normal",
+  CHECK: "High",
+  ALERT: "Cooling failure",
+};
+
 export function tempState(temperature: number): TempState {
   if (temperature > 5) return "ALERT";
   if (temperature > 4) return "CHECK";
   return "SAFE";
 }
+
 
 export function tempTone(state: TempState): string {
   switch (state) {
