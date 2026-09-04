@@ -441,12 +441,18 @@ export function buildActivity(data: BoardData, now: number = Date.now()): Activi
   }
 
   for (const i of data.incidents) {
+    const resolved = i.status === "RESOLVED";
+    const blocks = INCIDENT_OPTIONS.find((o) => o.type === i.type)?.blocks != null;
     events.push({
       id: `${i.id}-incident`,
       at: i.reported_at,
-      title: i.status === "RESOLVED" ? "Locker returned to service" : "Locker reported",
-      detail: `Locker ${lockerOf(i.locker_id)} · ${INCIDENT_LABEL[i.type]}${i.description ? ` — ${i.description}` : ""}`,
-      tone: i.status === "RESOLVED" ? "tone-free" : "tone-down",
+      title: resolved
+        ? `${INCIDENT_LABEL[i.type]} resolved`
+        : `${INCIDENT_LABEL[i.type]} reported`,
+      detail: resolved
+        ? `Locker ${lockerOf(i.locker_id)} · back in service`
+        : `Locker ${lockerOf(i.locker_id)} · ${blocks ? "out of service" : "still available"}`,
+      tone: resolved ? "tone-free" : "tone-down",
     });
   }
 
