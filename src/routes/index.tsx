@@ -628,6 +628,147 @@ function DropOffContent({
   );
 }
 
+type PickupStep = "code" | "success" | "already";
+
+function PickupContent({
+  locker,
+  reservation,
+  onBack,
+  onClose,
+}: {
+  locker: Locker;
+  reservation: Reservation;
+  onBack: () => void;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [step, setStep] = useState<PickupStep>("code");
+  const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirm() {
+    if (submitting) return; // double-tap protection
+    setSubmitting(true);
+    setError(null);
+    try {
+      // Wrong code: no state change, allow retry.
+      if (code.trim() !== reservation.pickup_code) {
+        setError("That code doesn't match. Check the code and try again.");
+        return;
+      }
+
+      // Conditional update: only succeeds while the reservation is still in storage
+      // (prevents duplicate pickup). Crate capacity is released by the same update.
+      const { data: updated, error: upErr } = await supabase
+        .from("reservations")
+        .update({ status: "PICKED_UP", picked_up_at: new Date().toISOString() })
+        .eq("id", reservation.id)
+        .in("status", ["CHECKED_IN", "STORED"])
+        .select("*");
+      if (upErr) throw upErr;
+
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      setStep(updated && updated.length > 0 ? "success" : "already");
+    } catch (e) {
+      // Network / server failure: no false success, allow retry.
+      setError(
+        e instanceof Error && e.message
+          ? `Couldn't reach the storage service (${e.message}). Nothing was changed — tap Retry.`
+          : "Couldn't reach the storage service. Nothing was changed — tap Retry.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (step === "success") {
+    return (
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <div className="space-y-4 px-4 pt-2 pb-6 text-center">
+          <p className="font-display text-3xl font-bold tracking-tight">✓ Pickup verified</p>
+          <div className="panel p-4">
+            <p className="font-display text-2xl font-bold">
+              Locker {locker.locker_number} released.
+            </p>
+            <p className="mt-1 text-lg font-semibold">
+              {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} removed from
+              storage.
+            </p>
+          </div>
+          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+            Back to board
+          </Button>
+        </div>
+      </SheetContent>
+    );
+  }
+
+  if (step === "already") {
+    return (
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <div className="space-y-4 px-4 pt-2 pb-6 text-center">
+          <p className="font-display text-3xl font-bold tracking-tight">Already picked up</p>
+          <p className="text-base text-muted-foreground">
+            This reservation was already collected — no new pickup was recorded.
+          </p>
+          <Button type="button" className="min-h-14 w-full text-lg font-bold" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </SheetContent>
+    );
+  }
+
+  return (
+    <SheetContent side="bottom" className="rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="font-display text-2xl">
+          Locker {locker.locker_number} · Pickup
+        </SheetTitle>
+        <SheetDescription>
+          {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
+          {RESERVATION_LABEL[reservation.status]}
+        </SheetDescription>
+      </SheetHeader>
+
+      <div className="space-y-4 px-4 pb-6">
+        <div>
+          <label htmlFor="pickup-code" className="stat-label mb-2 block">
+            Enter the 4-digit pickup code
+          </label>
+          <input
+            id="pickup-code"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={4}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            className="panel font-display w-full px-4 py-3 text-center text-4xl font-bold tracking-[0.5em]"
+            placeholder="····"
+          />
+        </div>
+        {error && (
+          <p role="alert" className="text-sm font-semibold text-destructive">
+            {error}
+          </p>
+        )}
+        <Button
+          type="button"
+          className="min-h-14 w-full text-lg font-bold"
+          disabled={submitting || code.length !== 4}
+          onClick={confirm}
+        >
+          {submitting ? "Verifying…" : error ? "Retry" : "Verify pickup"}
+        </Button>
+        <Button type="button" variant="ghost" className="min-h-12 w-full" onClick={onBack}>
+          Back
+        </Button>
+      </div>
+    </SheetContent>
+  );
+}
+
 function LockerCard({
   locker,
   data,
