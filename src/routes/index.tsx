@@ -3,9 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
-import { zodValidator } from "@tanstack/zod-adapter";
-import { z } from "zod";
-
 import { supabase } from "@/integrations/supabase/client";
 import {
   boardQuery,
