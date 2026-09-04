@@ -172,7 +172,7 @@ function ReserveSheet({
 
     const stillOpen =
       freshLocker && freshLocker.status !== "MAINTENANCE" && freshLocker.status !== "BREAKDOWN";
-    const liveFree = freshLocker ? freeCrates(freshLocker, freshRes ?? []) : 0;
+    const liveFree = freshLocker ? freeCrates(freshLocker, freshRes ?? [], pickedSlot) : 0;
     setLiveFreeCrates(liveFree);
 
     if (!stillOpen) {
