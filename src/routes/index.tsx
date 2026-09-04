@@ -1298,7 +1298,7 @@ function LockerCard({
         </div>
       </div>
 
-      <Sheet open={sheet !== null} onOpenChange={(o) => { console.log("openChange", o); if (!o) setSheet(null); }}>
+      <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
         {sheet === "reserve" ? (
           online ? (
             <ReserveSheet locker={locker} slot={slot} data={data} onClose={() => setSheet(null)} />
@@ -1826,7 +1826,7 @@ function BookingCard({
       )}
 
       {locker && (
-        <Sheet open={sheet !== null} onOpenChange={(o) => { console.log("openChange", o); if (!o) setSheet(null); }}>
+        <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
           {sheet === "dropoff" ? (
             <DropOffContent
               locker={locker}
