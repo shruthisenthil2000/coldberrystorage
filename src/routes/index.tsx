@@ -1077,8 +1077,10 @@ function LockerCard({
   data: BoardData;
   slot: HarvestSlot;
 }) {
-  const used = usedCrates(locker.id, data.reservations);
-  const open = isReservable(locker, data.reservations);
+  // Capacity is tracked per harvest slot.
+  const used = usedCrates(locker.id, data.reservations, slot);
+  const storedAll = usedCrates(locker.id, data.reservations);
+  const open = isReservable(locker, data.reservations, slot);
   const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
   const online = useOnline();
@@ -1088,7 +1090,8 @@ function LockerCard({
   const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
 
 
-  const free = locker.capacity - used;
+  const free = Math.max(0, locker.capacity - used);
+
 
   return (
     <article
