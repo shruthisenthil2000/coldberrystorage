@@ -1232,6 +1232,7 @@ function Board() {
   const { theme, toggle } = useTheme();
   const [reporting, setReporting] = useState(false);
   const [tab, setTab] = useState<Tab>("home");
+  const [statusFilter, setStatusFilter] = useState<"AVAILABLE" | "RESERVED" | "IN_STORAGE" | "DOWN" | null>(null);
   const now = useNow();
 
 
@@ -1325,28 +1326,34 @@ function Board() {
             <section className="mt-5 grid grid-cols-2 gap-3" aria-label="Locker summary">
               {(
                 [
-                  ["Available", data.lockers.filter((l) => l.status === "AVAILABLE").length, "tone-free"],
-                  ["Booked", data.lockers.filter((l) => l.status === "RESERVED").length, "tone-booked"],
-                  ["In storage", data.lockers.filter((l) => l.status === "IN_STORAGE").length, "tone-stored"],
+                  ["Available", "AVAILABLE", data.lockers.filter((l) => l.status === "AVAILABLE").length, "tone-free"],
+                  ["Booked", "RESERVED", data.lockers.filter((l) => l.status === "RESERVED").length, "tone-booked"],
+                  ["In storage", "IN_STORAGE", data.lockers.filter((l) => l.status === "IN_STORAGE").length, "tone-stored"],
                   [
                     "Out of service",
+                    "DOWN",
                     data.lockers.filter(
                       (l) => l.status === "MAINTENANCE" || l.status === "BREAKDOWN",
                     ).length,
                     "tone-down",
                   ],
                 ] as const
-              ).map(([label, value, tone]) => (
-                <div
+              ).map(([label, filter, value, tone]) => (
+                <button
                   key={label}
-                  className={`flex items-center gap-3 rounded-[var(--radius)] border p-3 shadow-[var(--shadow-card)] ${tone.replace("tone-", "tile-")}`}
+                  type="button"
+                  aria-pressed={statusFilter === filter}
+                  onClick={() => setStatusFilter((f) => (f === filter ? null : filter))}
+                  className={`pressable flex min-h-[56px] items-center gap-3 rounded-[var(--radius)] border p-3 text-left shadow-[var(--shadow-card)] ${tone.replace("tone-", "tile-")} ${
+                    statusFilter === filter ? "ring-2 ring-primary" : ""
+                  }`}
                 >
                   <span className={`size-2.5 shrink-0 rounded-full ${tone}`} aria-hidden="true" />
                   <div className="min-w-0">
                     <p className="text-xl leading-tight font-semibold tabular-nums">{value}</p>
                     <p className="meta-text truncate">{label}</p>
                   </div>
-                </div>
+                </button>
               ))}
             </section>
 
@@ -1410,10 +1417,35 @@ function Board() {
             })()}
 
             <section className="mt-5 grid gap-3">
-              <h2 className="section-heading">Lockers</h2>
-              {data.lockers.map((locker) => (
-                <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
-              ))}
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="section-heading">
+                  {statusFilter === null
+                    ? "Lockers"
+                    : statusFilter === "DOWN"
+                      ? "Out of service"
+                      : `${LOCKER_LABEL[statusFilter]} lockers`}
+                </h2>
+                {statusFilter !== null && (
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter(null)}
+                    className="meta-text pressable rounded-md px-2 py-1 font-semibold text-primary"
+                  >
+                    Show all
+                  </button>
+                )}
+              </div>
+              {data.lockers
+                .filter((locker) =>
+                  statusFilter === null
+                    ? true
+                    : statusFilter === "DOWN"
+                      ? locker.status === "MAINTENANCE" || locker.status === "BREAKDOWN"
+                      : locker.status === statusFilter,
+                )
+                .map((locker) => (
+                  <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
+                ))}
               <p className="meta-text mt-1 px-0.5">
                 Fair allocation: first come, first served. Reservations that are not checked in
                 within {CHECK_IN_WINDOW_MINUTES} minutes are released back to the community.
