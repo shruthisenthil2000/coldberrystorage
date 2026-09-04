@@ -32,6 +32,12 @@ import {
   INCIDENT_LABEL,
   openIncidents,
   reportIncident,
+  queueIncident,
+  flushIncidentQueue,
+  readIncidentQueue,
+  QUEUE_EVENT,
+  isStale,
+  lockerSizeLabel,
   ACTIVE_RESERVATION_STATUSES,
   buildActivity,
   displayStatus,
@@ -929,6 +935,7 @@ function ReportIssueContent({
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [queued, setQueued] = useState(false);
 
   const locker = data.lockers.find((l) => l.id === picked);
   const option = INCIDENT_OPTIONS.find((o) => o.type === type);
@@ -936,6 +943,15 @@ function ReportIssueContent({
   async function submit() {
     if (!type || !picked || saving) return;
     setSaving(true);
+    // Offline: keep the report locally and send it as soon as we reconnect.
+    if (!navigator.onLine) {
+      queueIncident({ lockerId: picked, type, description });
+      setSaving(false);
+      setQueued(true);
+      setDone(locker?.locker_number ?? "");
+      toast.success("Saved locally · waiting for connection");
+      return;
+    }
     try {
       await reportIncident({ lockerId: picked, type, description });
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
@@ -953,18 +969,24 @@ function ReportIssueContent({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
-          <SheetTitle className="text-xl font-semibold">✓ Issue reported</SheetTitle>
+          <SheetTitle className="text-xl font-semibold">
+            {queued ? "Saved locally" : "✓ Issue reported"}
+          </SheetTitle>
           <SheetDescription>
-            {option?.blocks
-              ? `${done} has been marked out of service.`
-              : `Thanks — the issue on ${done} has been logged.`}
+            {queued
+              ? `Your report for ${done} will be sent when the connection returns.`
+              : option?.blocks
+                ? `${done} has been marked out of service.`
+                : `Thanks — the issue on ${done} has been logged.`}
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-3 px-4 pb-6">
           <p className="rounded-md border border-border bg-muted p-3 text-sm">
-            {option?.blocks
-              ? "No new crates can be booked into this locker until it is fixed. Crates already stored there stay where they are."
-              : "The locker stays available. The team will look into it."}
+            {queued
+              ? "Nothing is lost — the report is stored on this phone and syncs automatically."
+              : option?.blocks
+                ? "No new crates can be booked into this locker until it is fixed. Crates already stored there stay where they are."
+                : "The locker stays available. The team will look into it."}
           </p>
           <Button type="button" className="pressable h-12 w-full rounded-xl text-[15px] font-semibold" onClick={onClose}>
             Done
@@ -1070,12 +1092,14 @@ function OfflineNotice({ onClose }: { onClose: () => void }) {
       <SheetHeader>
         <SheetTitle className="text-xl font-semibold">You're offline</SheetTitle>
         <SheetDescription>
-          Locker information is available from your last sync.
+          Reservation will be confirmed when connection returns.
         </SheetDescription>
       </SheetHeader>
       <div className="space-y-3 px-4 pb-6">
         <p className="rounded-lg bg-muted p-3 text-sm">
-          New reservations require a connection to prevent double-booking.
+          Nothing has been booked yet. Crate numbers you can see are from the last
+          sync, so a reservation is only confirmed once the server accepts it — that
+          way two farmers can never take the same crate space.
         </p>
         <Button
           className="pressable h-[52px] w-full rounded-xl text-[15px] font-semibold"
@@ -1144,7 +1168,9 @@ function LockerCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="card-title truncate">{locker.locker_number}</h3>
-          <p className="meta-text mt-0.5 truncate">{locker.zone}</p>
+          <p className="meta-text mt-0.5 truncate">
+            {locker.zone} · {lockerSizeLabel(locker.capacity)}
+          </p>
         </div>
         <Chip tone={statusTone(locker.status)}>
           {availabilityLabel(locker, data.reservations, slot)}
