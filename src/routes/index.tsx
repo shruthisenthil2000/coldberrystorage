@@ -1191,7 +1191,7 @@ function Board() {
       </header>
 
       {stale && data && (
-        <div className="panel mt-3 flex items-center justify-between gap-3 border-2 border-warning/60 p-3">
+        <div className="panel mt-3 flex items-center justify-between gap-3 border-2 border-primary/60 p-3">
           <p className="text-sm font-semibold">
             Showing data cached at {clockTime(data.syncedAt)}.
             <span className="block font-normal text-muted-foreground">
