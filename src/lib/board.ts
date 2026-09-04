@@ -361,6 +361,14 @@ export function displayTone(status: DisplayStatus): string {
 }
 
 /** "32:14" style countdown; returns null once the deadline has passed. */
+/** Under this many minutes the check-in countdown is shown as urgent. */
+export const CRITICAL_MINUTES = 10;
+
+export function isCheckInUrgent(deadline: string, now: number = Date.now()): boolean {
+  const ms = new Date(deadline).getTime() - now;
+  return ms > 0 && ms <= CRITICAL_MINUTES * 60_000;
+}
+
 export function formatCountdown(deadline: string, now: number = Date.now()): string | null {
   const ms = new Date(deadline).getTime() - now;
   if (ms <= 0) return null;
