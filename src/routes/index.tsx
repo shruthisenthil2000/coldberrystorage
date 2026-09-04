@@ -1559,22 +1559,42 @@ function BookingCard({
       )}
 
       {lockerDown && ACTIVE_RESERVATION_STATUSES.includes(reservation.status) && (
-        <p className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
-          ⚠ Locker {locker?.locker_number} is out of service
-          {incidents[0] ? ` — ${INCIDENT_LABEL[incidents[0].type]}` : ""}. Your crates are safe and
-          this booking is kept. Reserve another locker on Home if you need to move them.
-        </p>
+        <div className="mt-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          <p className="font-semibold">
+            ⚠ Your locker is unavailable · Locker {locker?.locker_number}
+          </p>
+          {incidents[0] && (
+            <p className="mt-0.5">{INCIDENT_LABEL[incidents[0].type]} reported</p>
+          )}
+          {reservation.status === "RESERVED" ? (
+            <>
+              <p className="mt-0.5 text-muted-foreground">Your reservation needs to be moved.</p>
+              <Button
+                type="button"
+                className="pressable mt-2.5 h-12 w-full rounded-xl text-[15px] font-semibold"
+                onClick={() => setSheet("move")}
+              >
+                Move reservation
+              </Button>
+            </>
+          ) : (
+            <p className="mt-0.5 text-muted-foreground">
+              Your crates are safe and this booking is kept. Staff have been alerted.
+            </p>
+          )}
+        </div>
       )}
 
-      {locker && reservation.status === "RESERVED" && remaining && (
+      {locker && reservation.status === "RESERVED" && remaining && !lockerDown && (
         <Button
           type="button"
-          className="pressable btn-gradient mt-3 h-14 w-full rounded-xl text-base font-semibold"
+          className="pressable mt-3 h-14 w-full rounded-xl bg-free text-base font-semibold text-free-foreground hover:bg-free/90"
           onClick={() => setSheet("dropoff")}
         >
           Check in / Drop off
         </Button>
       )}
+
       {locker && (reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
         <Button
           type="button"
