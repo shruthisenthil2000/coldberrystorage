@@ -320,6 +320,7 @@ function ReservationSheet({
   onClose: () => void;
 }) {
   const [dropoff, setDropoff] = useState<Reservation | null>(null);
+  const [pickup, setPickup] = useState<Reservation | null>(null);
   const active = data.reservations.filter(
     (r) => r.locker_id === locker.id && ["RESERVED", "CHECKED_IN", "STORED"].includes(r.status),
   );
@@ -332,6 +333,17 @@ function ReservationSheet({
         reservation={dropoff}
         data={data}
         onBack={() => setDropoff(null)}
+        onClose={onClose}
+      />
+    );
+  }
+
+  if (pickup) {
+    return (
+      <PickupContent
+        locker={locker}
+        reservation={pickup}
+        onBack={() => setPickup(null)}
         onClose={onClose}
       />
     );
@@ -400,6 +412,15 @@ function ReservationSheet({
                 <p className="mt-3 rounded-md border border-border bg-muted p-2.5 text-sm font-semibold">
                   Drop-off confirmed {shortTime(r.checked_in_at)} — no further check-in needed.
                 </p>
+              )}
+              {(r.status === "CHECKED_IN" || r.status === "STORED") && (
+                <Button
+                  type="button"
+                  className="mt-3 min-h-12 w-full text-base font-bold"
+                  onClick={() => setPickup(r)}
+                >
+                  Verify pickup
+                </Button>
               )}
             </li>
           );
