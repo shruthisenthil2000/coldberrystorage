@@ -1232,22 +1232,34 @@ function Board() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
-        {stale && data && (
-          <div className="panel-flat mb-4 flex items-center justify-between gap-3 p-3">
-            <p className="text-sm">
-              <span className="font-semibold">Offline</span>
-              <span className="block meta-text">Last synced {clockTime(data.syncedAt)}</span>
+        {data && (
+          stale ? (
+            <div className="panel-flat mb-4 flex items-center justify-between gap-3 p-3">
+              <p className="text-sm">
+                <span className="flex items-center gap-2 font-semibold">
+                  <span className="size-2.5 rounded-full tone-booked" aria-hidden="true" />
+                  Offline
+                </span>
+                <span className="meta-text mt-0.5 block">
+                  Showing saved information · last synced {clockTime(data.syncedAt)}
+                </span>
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="pressable h-11 shrink-0 rounded-xl font-semibold"
+                disabled={isFetching}
+                onClick={() => refetch()}
+              >
+                {isFetching ? "Checking…" : "Retry"}
+              </Button>
+            </div>
+          ) : (
+            <p className="mb-3 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <span className="size-2 rounded-full tone-free" aria-hidden="true" />
+              {isFetching ? "Syncing…" : `Synced ${clockTime(data.syncedAt)}`}
             </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="pressable h-11 shrink-0 rounded-xl font-semibold"
-              disabled={isFetching}
-              onClick={() => refetch()}
-            >
-              {isFetching ? "Checking…" : "Retry"}
-            </Button>
-          </div>
+          )
         )}
 
         {isPending && <p className="mt-8 text-muted-foreground">Loading the board…</p>}
