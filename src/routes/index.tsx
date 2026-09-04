@@ -440,7 +440,9 @@ function ReservationSheet({
             <li key={r.id} className="panel p-4">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-base font-bold">{farmer?.farm_name ?? "Unknown farm"}</span>
-                <Chip tone={reservationTone(r.status)}>{RESERVATION_LABEL[r.status]}</Chip>
+                <Chip tone={displayTone(displayStatus(r))}>
+                  {DISPLAY_STATUS_LABEL[displayStatus(r)]}
+                </Chip>
               </div>
               <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
                 <dt className="stat-label">Crates</dt>
