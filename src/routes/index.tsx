@@ -1086,6 +1086,21 @@ function Board() {
         <>
           <LastReservationCard data={data} />
 
+          <Button
+            type="button"
+            variant="destructive"
+            className="mt-5 min-h-14 w-full text-base font-bold"
+            onClick={() => setReporting(true)}
+          >
+            ⚠ Report issue
+          </Button>
+          <Sheet open={reporting} onOpenChange={setReporting}>
+            {reporting && (
+              <ReportIssueContent data={data} onClose={() => setReporting(false)} />
+            )}
+          </Sheet>
+
+
           <section className="mt-5 grid grid-cols-5 gap-1.5 max-sm:grid-cols-3">
             {(
               [
