@@ -1763,6 +1763,31 @@ function BookingCard({
         </>
       )}
 
+      {/* Development-only: demonstrate the real 45-minute rule without waiting.
+          It only moves this booking's deadline into the past; the production
+          rule (reserved_at + 45 min) and the expiry logic are unchanged. */}
+      {import.meta.env.DEV && reservation.status === "RESERVED" && (
+        <Button
+          type="button"
+          variant="ghost"
+          className="pressable mt-2 h-9 w-full rounded-lg text-xs text-muted-foreground"
+          onClick={async () => {
+            await supabase
+              .from("reservations")
+              .update({ check_in_deadline: new Date(Date.now() - 60_000).toISOString() })
+              .eq("id", reservation.id)
+              .eq("status", "RESERVED");
+            await expireOverdueReservations();
+            await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+            toast.message("Demo: check-in window expired — crates released.");
+          }}
+        >
+          Demo only · simulate check-in window expiring
+        </Button>
+      )}
+
+
+
 
       {(reservation.status === "CHECKED_IN" || reservation.status === "STORED") && (
         <div className="mt-3 grid grid-cols-2 gap-2">
