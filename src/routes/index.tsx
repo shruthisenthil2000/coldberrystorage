@@ -362,7 +362,9 @@ function ReserveSheet({
             >
               +
             </Button>
-            <span className="text-sm text-muted-foreground">of {free} free</span>
+            <span className="text-sm text-muted-foreground">
+              {free} crate{free === 1 ? "" : "s"} available
+            </span>
           </div>
         </div>
 
@@ -372,7 +374,9 @@ function ReserveSheet({
           disabled={saving || !farmerId || crates <= 0 || crates > free}
           onClick={reserve}
         >
-          {saving ? "Reserving…" : "Reserve locker"}
+          {saving
+            ? "Reserving…"
+            : `Reserve ${crates} crate${crates === 1 ? "" : "s"}`}
         </Button>
       </div>
     </SheetContent>
