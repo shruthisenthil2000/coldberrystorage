@@ -56,11 +56,24 @@ server-side against the row before transitioning state and recording a timestamp
 
 The last successful board fetch (lockers, reservations, farmers, incidents) is
 cached in `localStorage` with a `syncedAt` stamp. Offline, the app renders that
-cache read-only, shows an obvious offline banner with the last sync time, and
-blocks writes with a plain explanation rather than pretending a booking
-succeeded. Coming back online triggers "Back online — syncing…" and a refetch.
-This deliberately avoids optimistic offline reservations: capacity is shared, so
-an unconfirmed booking would risk duplicates and overbooking.
+cache read-only ("Offline · Showing last synced data" plus the last sync time),
+and labels it "Stale — may have changed" once the cache is older than five
+minutes, so old crate counts are never presented as live.
+
+Reservations are never confirmed offline: the reserve sheet shows "You're
+offline. Reservation will be confirmed when connection returns." Server-confirmed
+availability is always authoritative, which is what keeps two farmers from
+taking the same remaining crate space.
+
+Incident reports are safe to queue, so they are: an offline report is stored in
+`localStorage` ("Saved locally · waiting for connection") and the banner counts
+how many are waiting. On reconnect the app flushes the queue in order, refetches
+the board, and confirms "Back online · Synced". Queued items are removed only
+after the server accepts them, so a failed send is retried rather than lost, and
+a report can never be submitted twice. The header dot reads Live, Syncing…, or
+Offline at all times.
+
+
 
 ## 7. Overbooking and concurrency
 
