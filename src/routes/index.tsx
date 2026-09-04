@@ -23,6 +23,9 @@ import {
   CHECK_IN_WINDOW_MINUTES,
   statusTone,
   tempState,
+  TEMP_LABEL,
+  availabilityLabel,
+
   expireOverdueReservations,
   tempTone,
   INCIDENT_OPTIONS,
