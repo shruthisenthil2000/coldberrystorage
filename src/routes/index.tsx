@@ -36,12 +36,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { useSyncExternalStore } from "react";
 
-const searchSchema = z.object({
-  slot: z.enum(["MORNING", "AFTERNOON"]).default("MORNING"),
-});
-
 export const Route = createFileRoute("/")({
-  validateSearch: zodValidator(searchSchema),
+  validateSearch: (search): { slot: HarvestSlot } => ({
+    slot: search.slot === "AFTERNOON" ? "AFTERNOON" : "MORNING",
+  }),
   head: () => ({
     meta: [
       { title: "ColdStore — Shared Berry Cold Storage Board" },
