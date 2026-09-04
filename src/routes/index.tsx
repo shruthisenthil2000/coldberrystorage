@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,9 @@ import {
   SLOT_LABEL,
   reservationTone,
   shortTime,
-  slotDeadline,
+  checkInDeadline,
+  clockTime,
+  CHECK_IN_WINDOW_MINUTES,
   statusTone,
   tempState,
   tempTone,
@@ -96,6 +98,8 @@ function CapacityBar({ used, capacity }: { used: number; capacity: number }) {
   );
 }
 
+const LAST_RESERVATION_KEY = "coldstore:last-reservation";
+
 function ReserveSheet({
   locker,
   slot,
@@ -110,37 +114,118 @@ function ReserveSheet({
   const queryClient = useQueryClient();
   const free = freeCrates(locker, data.reservations);
   const [farmerId, setFarmerId] = useState(data.farmers[0]?.id ?? "");
-  const [crates, setCrates] = useState(1);
+  const [pickedSlot, setPickedSlot] = useState<HarvestSlot>(slot);
+  const [crates, setCrates] = useState(Math.min(1, free));
   const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState<Reservation | null>(null);
+  const [showBooking, setShowBooking] = useState(false);
+  const tState = tempState(Number(locker.temperature));
 
   async function reserve() {
-    if (!farmerId) return;
+    if (!farmerId || crates <= 0 || crates > free) return;
     setSaving(true);
-    const { error } = await supabase.from("reservations").insert({
-      farmer_id: farmerId,
-      locker_id: locker.id,
-      slot,
-      crate_count: crates,
-      check_in_deadline: slotDeadline(slot),
-    });
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
+
+    // Re-check live capacity: someone else may have taken the space meanwhile.
+    const [{ data: freshLocker }, { data: freshRes }] = await Promise.all([
+      supabase.from("lockers").select("*").eq("id", locker.id).maybeSingle(),
+      supabase.from("reservations").select("*").eq("locker_id", locker.id),
+    ]);
+
+    const stillOpen =
+      freshLocker && freshLocker.status !== "MAINTENANCE" && freshLocker.status !== "BREAKDOWN";
+    const liveFree = freshLocker ? freeCrates(freshLocker, freshRes ?? []) : 0;
+
+    if (!stillOpen || crates > liveFree) {
+      setSaving(false);
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      toast.error(
+        !stillOpen
+          ? `Locker ${locker.locker_number} is no longer available.`
+          : `Locker ${locker.locker_number} only has ${liveFree} crate${liveFree === 1 ? "" : "s"} left. Capacity refreshed.`,
+      );
+      onClose();
       return;
     }
-    toast.success(`Locker ${locker.locker_number} booked for the ${SLOT_LABEL[slot].toLowerCase()} slot`);
+
+    const { data: created, error } = await supabase
+      .from("reservations")
+      .insert({
+        farmer_id: farmerId,
+        locker_id: locker.id,
+        slot: pickedSlot,
+        crate_count: crates,
+        check_in_deadline: checkInDeadline(),
+      })
+      .select("*")
+      .single();
+
+    setSaving(false);
+    if (error || !created) {
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      toast.error(error?.message ?? "The reservation could not be made.");
+      return;
+    }
+
+    try {
+      localStorage.setItem(LAST_RESERVATION_KEY, created.id);
+    } catch {
+      /* storage unavailable — confirmation still shows now */
+    }
+    setDone(created);
     await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
-    onClose();
+  }
+
+  if (done) {
+    if (showBooking) {
+      return <ReservationSheet locker={locker} data={data} onClose={onClose} />;
+    }
+    return (
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetHeader>
+          <SheetTitle className="font-display text-2xl">✓ Locker reserved</SheetTitle>
+          <SheetDescription>
+            Locker {locker.locker_number} · {SLOT_LABEL[done.slot as HarvestSlot] ?? done.slot} ·{" "}
+            {done.crate_count} crate{done.crate_count === 1 ? "" : "s"}
+          </SheetDescription>
+        </SheetHeader>
+        <div className="space-y-4 px-4 pb-6">
+          <div className="panel p-4">
+            <p className="stat-label">Check in by</p>
+            <p className="font-display text-4xl font-bold">{clockTime(done.check_in_deadline)}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              If you do not check in within {CHECK_IN_WINDOW_MINUTES} minutes, this reservation will
+              automatically be released.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="panel p-3">
+              <p className="stat-label">Drop-off code</p>
+              <p className="font-display text-2xl font-bold tracking-widest">{done.dropoff_code}</p>
+            </div>
+            <div className="panel p-3">
+              <p className="stat-label">Pickup code</p>
+              <p className="font-display text-2xl font-bold tracking-widest">{done.pickup_code}</p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            className="min-h-14 w-full text-lg font-bold"
+            onClick={() => setShowBooking(true)}
+          >
+            View reservation
+          </Button>
+        </div>
+      </SheetContent>
+    );
   }
 
   return (
     <SheetContent side="bottom" className="rounded-t-2xl">
       <SheetHeader>
-        <SheetTitle className="font-display text-2xl">
-          Book locker {locker.locker_number} · {SLOT_LABEL[slot]}
-        </SheetTitle>
+        <SheetTitle className="font-display text-2xl">Locker {locker.locker_number}</SheetTitle>
         <SheetDescription>
-          {free} crate{free === 1 ? "" : "s"} free in this locker.
+          {free} / {locker.capacity} crates available · {Number(locker.temperature).toFixed(1)} °C ·{" "}
+          {tState}
         </SheetDescription>
       </SheetHeader>
 
@@ -165,22 +250,43 @@ function ReserveSheet({
         </div>
 
         <div>
+          <p className="stat-label mb-2">Harvest slot</p>
+          <div className="grid grid-cols-2 gap-2" role="group">
+            {(["MORNING", "AFTERNOON"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-pressed={pickedSlot === s}
+                onClick={() => setPickedSlot(s)}
+                className={`panel min-h-14 text-lg font-bold ${
+                  pickedSlot === s ? "ring-2 ring-primary bg-primary text-primary-foreground" : ""
+                }`}
+              >
+                {SLOT_LABEL[s]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
           <p className="stat-label mb-2">Crates</p>
           <div className="flex items-center gap-3">
             <Button
               type="button"
               variant="outline"
-              className="h-12 w-12 text-2xl"
+              className="h-14 w-14 text-3xl"
+              aria-label="One crate fewer"
               disabled={crates <= 1}
               onClick={() => setCrates((c) => Math.max(1, c - 1))}
             >
               −
             </Button>
-            <span className="font-display w-10 text-center text-3xl font-bold">{crates}</span>
+            <span className="font-display w-12 text-center text-4xl font-bold">{crates}</span>
             <Button
               type="button"
               variant="outline"
-              className="h-12 w-12 text-2xl"
+              className="h-14 w-14 text-3xl"
+              aria-label="One crate more"
               disabled={crates >= free}
               onClick={() => setCrates((c) => Math.min(free, c + 1))}
             >
@@ -193,15 +299,16 @@ function ReserveSheet({
         <Button
           type="button"
           className="min-h-14 w-full text-lg font-bold"
-          disabled={saving || !farmerId}
+          disabled={saving || !farmerId || crates <= 0 || crates > free}
           onClick={reserve}
         >
-          {saving ? "Booking…" : "Confirm booking"}
+          {saving ? "Reserving…" : "Reserve locker"}
         </Button>
       </div>
     </SheetContent>
   );
 }
+
 
 function ReservationSheet({
   locker,
@@ -388,6 +495,8 @@ function Board() {
 
       {data && (
         <>
+          <LastReservationCard data={data} />
+
           <section className="mt-5 grid grid-cols-5 gap-1.5 max-sm:grid-cols-3">
             {(
               [
@@ -462,5 +571,49 @@ function Board() {
         </>
       )}
     </main>
+  );
+}
+
+function LastReservationCard({ data }: { data: BoardData }) {
+  const [id, setId] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setId(localStorage.getItem(LAST_RESERVATION_KEY));
+    } catch {
+      setId(null);
+    }
+  }, []);
+
+  const reservation = id ? data.reservations.find((r) => r.id === id) : undefined;
+  if (!reservation || reservation.status !== "RESERVED") return null;
+  const locker = data.lockers.find((l) => l.id === reservation.locker_id);
+
+  return (
+    <section className="panel mt-5 border-2 border-primary p-4" aria-label="Your reservation">
+      <p className="stat-label">✓ Locker reserved</p>
+      <p className="font-display text-2xl font-bold">
+        Locker {locker?.locker_number ?? "—"} ·{" "}
+        {SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot} ·{" "}
+        {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"}
+      </p>
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <div>
+          <p className="stat-label">Check in by</p>
+          <p className="font-display text-3xl font-bold">
+            {clockTime(reservation.check_in_deadline)}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="stat-label">Drop-off code</p>
+          <p className="font-display text-2xl font-bold tracking-widest">
+            {reservation.dropoff_code}
+          </p>
+        </div>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">
+        If you do not check in within {CHECK_IN_WINDOW_MINUTES} minutes, this reservation will
+        automatically be released.
+      </p>
+    </section>
   );
 }

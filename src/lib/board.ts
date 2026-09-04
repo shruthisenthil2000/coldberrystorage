@@ -104,13 +104,21 @@ export const SLOT_LABEL: Record<HarvestSlot, string> = {
   AFTERNOON: "Afternoon",
 };
 
-/** Local time by which a reservation for the given slot must be dropped off today. */
-export function slotDeadline(slot: HarvestSlot): string {
-  const d = new Date();
-  d.setHours(slot === "MORNING" ? 12 : 18, 0, 0, 0);
-  if (d.getTime() < Date.now()) d.setDate(d.getDate() + 1);
-  return d.toISOString();
+/** Reservations must be checked in within 45 minutes of booking. */
+export const CHECK_IN_WINDOW_MINUTES = 45;
+
+export function checkInDeadline(from: Date = new Date()): string {
+  return new Date(from.getTime() + CHECK_IN_WINDOW_MINUTES * 60_000).toISOString();
 }
+
+export function clockTime(value: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 
 export function statusTone(status: LockerStatus): string {
   switch (status) {
