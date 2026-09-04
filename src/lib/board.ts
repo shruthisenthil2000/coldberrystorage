@@ -176,3 +176,74 @@ export function shortTime(value: string | null): string {
     minute: "2-digit",
   });
 }
+
+/* ---------------------------------------------------------------- incidents */
+
+export type IncidentType = Incident["type"];
+export type IncidentStatus = Incident["status"];
+
+export type IncidentOption = {
+  /** Value stored in the incidents table. */
+  type: IncidentType;
+  /** Short label shown in the report form. */
+  label: string;
+  /**
+   * Locker state applied when this problem is reported. `null` keeps the
+   * locker bookable (minor issues are logged only).
+   */
+  blocks: LockerStatus | null;
+};
+
+export const INCIDENT_OPTIONS: IncidentOption[] = [
+  { type: "DOOR", label: "Door left open", blocks: "MAINTENANCE" },
+  { type: "POWER", label: "Cooling failure", blocks: "BREAKDOWN" },
+  { type: "TEMPERATURE", label: "Temperature too high", blocks: "BREAKDOWN" },
+  { type: "SPOILAGE", label: "Locker damaged", blocks: "BREAKDOWN" },
+  { type: "OTHER", label: "Other", blocks: null },
+];
+
+export const INCIDENT_LABEL: Record<IncidentType, string> = {
+  DOOR: "Door left open",
+  POWER: "Cooling failure",
+  TEMPERATURE: "Temperature too high",
+  SPOILAGE: "Locker damaged",
+  OTHER: "Other issue",
+};
+
+/** Unresolved incidents recorded against a locker. */
+export function openIncidents(lockerId: string, incidents: Incident[]): Incident[] {
+  return incidents.filter((i) => i.locker_id === lockerId && i.status !== "RESOLVED");
+}
+
+/**
+ * Record an incident and, when the problem affects storage safety, stop the
+ * locker from taking NEW reservations. Existing crates are never touched.
+ */
+export async function reportIncident(input: {
+  lockerId: string;
+  type: IncidentType;
+  description: string;
+}): Promise<Incident> {
+  const option = INCIDENT_OPTIONS.find((o) => o.type === input.type);
+  const { data, error } = await supabase
+    .from("incidents")
+    .insert({
+      locker_id: input.lockerId,
+      type: input.type,
+      description: input.description.trim() || INCIDENT_LABEL[input.type],
+    })
+    .select("*")
+    .single();
+  if (error) throw error;
+
+  if (option?.blocks) {
+    const { error: lockerError } = await supabase
+      .from("lockers")
+      .update({ status: option.blocks })
+      .eq("id", input.lockerId)
+      .not("status", "in", "(MAINTENANCE,BREAKDOWN)");
+    if (lockerError) throw lockerError;
+  }
+
+  return data;
+}
