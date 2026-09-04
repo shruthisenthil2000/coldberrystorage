@@ -89,12 +89,12 @@
   --secondary: oklch(0.93 0.02 240);
   --secondary-foreground: oklch(0.24 0.03 250);
   --muted: oklch(0.94 0.012 240);
-  --muted-foreground: oklch(0.46 0.02 250);
+  --muted-foreground: oklch(0.40 0.02 250);
   --accent: oklch(0.9 0.05 220);
   --accent-foreground: oklch(0.22 0.04 250);
   --destructive: oklch(0.52 0.22 27);
   --destructive-foreground: oklch(0.99 0.005 240);
-  --border: oklch(0.86 0.015 240);
+  --border: oklch(0.80 0.02 240);
   --input: oklch(0.86 0.015 240);
   --ring: oklch(0.44 0.17 8);
 
@@ -133,6 +133,8 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.5;
     -webkit-text-size-adjust: 100%;
   }
 }
@@ -166,27 +168,28 @@
   .status-chip {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.3rem;
     border-radius: 999px;
-    padding: 0.15rem 0.6rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.875rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
   }
 
   .panel {
     background-color: var(--card);
-    border: 1px solid var(--border);
+    border: 2px solid var(--border);
     border-radius: var(--radius);
   }
 
   .stat-label {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.09em;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--muted-foreground);
   }
 }
+
 

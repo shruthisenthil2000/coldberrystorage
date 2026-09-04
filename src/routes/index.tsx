@@ -297,7 +297,7 @@ function ReserveSheet({
       <div className="space-y-5 px-4 pb-6">
         <div>
           <p className="stat-label mb-2">Your farm</p>
-          <div className="grid gap-2">
+          <div className="grid max-h-40 gap-2 overflow-y-auto pr-1">
             {data.farmers.map((f) => (
               <button
                 key={f.id}
@@ -692,7 +692,7 @@ function DropOffContent({
             />
           </div>
           {error && (
-            <p role="alert" className="text-sm font-semibold text-destructive">
+            <p role="alert" className="text-base font-bold text-destructive">
               {error}
             </p>
           )}
@@ -834,7 +834,7 @@ function PickupContent({
           />
         </div>
         {error && (
-          <p role="alert" className="text-sm font-semibold text-destructive">
+          <p role="alert" className="text-base font-bold text-destructive">
             {error}
           </p>
         )}
