@@ -502,7 +502,17 @@ function DropOffContent({
       if (upErr) throw upErr;
 
       await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
-      setStep(updated && updated.length > 0 ? "success" : "already");
+      if (updated && updated.length > 0) {
+        setStep("success");
+      } else {
+        // No row updated: someone else changed it first. Find out what happened.
+        const { data: current } = await supabase
+          .from("reservations")
+          .select("status")
+          .eq("id", reservation.id)
+          .maybeSingle();
+        setStep(current?.status === "CANCELLED" ? "expired" : "already");
+      }
     } catch (e) {
       // Network / server failure: no false success, allow retry.
       setError(
