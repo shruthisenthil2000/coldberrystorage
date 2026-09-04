@@ -935,13 +935,12 @@ function LockerCard({
 }) {
   const used = usedCrates(locker.id, data.reservations);
   const open = isReservable(locker, data.reservations);
-  const incidents = data.incidents.filter(
-    (i) => i.locker_id === locker.id && i.status !== "RESOLVED",
-  );
+  const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
-  const [sheet, setSheet] = useState<"reserve" | "view" | null>(null);
+  const [sheet, setSheet] = useState<"reserve" | "view" | "report" | null>(null);
 
   const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
+
 
   return (
     <article className="panel flex flex-col p-4">
