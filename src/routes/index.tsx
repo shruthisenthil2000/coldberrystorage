@@ -1452,7 +1452,7 @@ function Board() {
               <div className="flex items-center justify-between gap-3">
                 <h2 className="section-heading">
                   {statusFilter === null
-                    ? "Lockers"
+                    ? "Locker availability"
                     : statusFilter === "DOWN"
                       ? "Out of service"
                       : `${LOCKER_LABEL[statusFilter]} lockers`}
