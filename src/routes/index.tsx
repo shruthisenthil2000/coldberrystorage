@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -571,5 +571,49 @@ function Board() {
         </>
       )}
     </main>
+  );
+}
+
+function LastReservationCard({ data }: { data: BoardData }) {
+  const [id, setId] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      setId(localStorage.getItem(LAST_RESERVATION_KEY));
+    } catch {
+      setId(null);
+    }
+  }, []);
+
+  const reservation = id ? data.reservations.find((r) => r.id === id) : undefined;
+  if (!reservation || reservation.status !== "RESERVED") return null;
+  const locker = data.lockers.find((l) => l.id === reservation.locker_id);
+
+  return (
+    <section className="panel mt-5 border-2 border-primary p-4" aria-label="Your reservation">
+      <p className="stat-label">✓ Locker reserved</p>
+      <p className="font-display text-2xl font-bold">
+        Locker {locker?.locker_number ?? "—"} ·{" "}
+        {SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot} ·{" "}
+        {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"}
+      </p>
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <div>
+          <p className="stat-label">Check in by</p>
+          <p className="font-display text-3xl font-bold">
+            {clockTime(reservation.check_in_deadline)}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="stat-label">Drop-off code</p>
+          <p className="font-display text-2xl font-bold tracking-widest">
+            {reservation.dropoff_code}
+          </p>
+        </div>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">
+        If you do not check in within {CHECK_IN_WINDOW_MINUTES} minutes, this reservation will
+        automatically be released.
+      </p>
+    </section>
   );
 }
