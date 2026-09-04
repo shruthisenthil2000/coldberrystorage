@@ -977,15 +977,29 @@ function LockerCard({
         <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2.5 text-sm">
           {incidents.map((i) => (
             <p key={i.id}>
-              <span className="font-bold">{i.type}</span> — {i.description}
+              <span className="font-bold">⚠ {INCIDENT_LABEL[i.type]}</span> — {i.description}
             </p>
           ))}
+          {down && used > 0 && (
+            <p className="mt-2 font-semibold">
+              {used} crate{used === 1 ? "" : "s"} currently stored. The locker is unavailable for
+              new reservations.
+            </p>
+          )}
         </div>
       )}
 
       <div className="mt-4 flex-1" />
 
-      {down ? (
+      {down && used > 0 ? (
+        <Button
+          variant="secondary"
+          className="min-h-12 w-full text-base font-bold"
+          onClick={() => setSheet("view")}
+        >
+          View reservation
+        </Button>
+      ) : down ? (
         <p className="panel tone-muted min-h-12 rounded-md text-center text-sm leading-12 font-bold uppercase">
           Not available
         </p>
@@ -1003,13 +1017,29 @@ function LockerCard({
         </Button>
       )}
 
+      <Button
+        type="button"
+        variant="ghost"
+        className="mt-2 min-h-11 w-full text-sm font-bold"
+        onClick={() => setSheet("report")}
+      >
+        ⚠ Report issue
+      </Button>
+
       <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
         {sheet === "reserve" ? (
           <ReserveSheet locker={locker} slot={slot} data={data} onClose={() => setSheet(null)} />
         ) : sheet === "view" ? (
           <ReservationSheet locker={locker} data={data} onClose={() => setSheet(null)} />
+        ) : sheet === "report" ? (
+          <ReportIssueContent
+            data={data}
+            lockerId={locker.id}
+            onClose={() => setSheet(null)}
+          />
         ) : null}
       </Sheet>
+
     </article>
   );
 }
