@@ -223,6 +223,12 @@ function ReserveSheet({
       /* storage unavailable — confirmation still shows now */
     }
     setDone(created);
+    toast.success(
+      `Reservation confirmed · Locker ${locker.locker_number} · ${created.crate_count} crate${
+        created.crate_count === 1 ? "" : "s"
+      } — check in within ${CHECK_IN_WINDOW_MINUTES} minutes.`,
+    );
+
     await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
   }
 
