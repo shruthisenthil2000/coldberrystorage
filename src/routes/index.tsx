@@ -239,7 +239,7 @@ function ReserveSheet({
                 setShortfall(null);
               }}
             >
-              Change quantity
+              Reserve {shortfall} crate{shortfall === 1 ? "" : "s"}
             </Button>
           ) : (
             <Button className="h-14 w-full text-base" onClick={onClose}>
