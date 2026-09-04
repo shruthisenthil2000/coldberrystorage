@@ -955,25 +955,31 @@ function ReportIssueContent({
         <SheetTitle className="text-xl font-semibold">⚠ Report issue</SheetTitle>
         <SheetDescription>What happened?</SheetDescription>
       </SheetHeader>
-      <div className="space-y-5 px-4 pb-6">
+      <div className="space-y-4 px-4 pb-6">
         <div className="grid gap-3" role="group" aria-label="What happened?">
-          {INCIDENT_OPTIONS.map((o) => (
-            <button
-              key={o.type}
-              type="button"
-              aria-pressed={type === o.type}
-              onClick={() => setType(o.type)}
-              className={`panel pressable min-h-12 rounded-xl px-3 text-left text-[15px] font-medium ${
-                type === o.type ? "bg-primary text-primary-foreground ring-2 ring-primary" : ""
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
+          {INCIDENT_OPTIONS.map((o) => {
+            const selected = type === o.type;
+            return (
+              <button
+                key={o.type}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setType(o.type)}
+                className={`panel pressable min-h-12 rounded-xl px-3 text-left text-[15px] font-medium ${
+                  selected ? `option-${o.tone}-selected ring-2 ring-${o.tone}` : `option-${o.tone}`
+                }`}
+              >
+                <span className={selected ? "text-current" : ""}>{o.label}</span>
+                {o.blocks && (
+                  <span className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div>
-          <label className="stat-label mb-2 block" htmlFor="incident-locker">
+          <label className="stat-label mb-3 block" htmlFor="incident-locker">
             Locker
           </label>
           <select
@@ -991,7 +997,7 @@ function ReportIssueContent({
         </div>
 
         <div>
-          <label className="stat-label mb-2 block" htmlFor="incident-note">
+          <label className="stat-label mb-3 block" htmlFor="incident-note">
             Description (optional)
           </label>
           <textarea
