@@ -1417,10 +1417,35 @@ function Board() {
             })()}
 
             <section className="mt-5 grid gap-3">
-              <h2 className="section-heading">Lockers</h2>
-              {data.lockers.map((locker) => (
-                <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
-              ))}
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="section-heading">
+                  {statusFilter === null
+                    ? "Lockers"
+                    : statusFilter === "DOWN"
+                      ? "Out of service"
+                      : `${LOCKER_LABEL[statusFilter]} lockers`}
+                </h2>
+                {statusFilter !== null && (
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter(null)}
+                    className="meta-text pressable rounded-md px-2 py-1 font-semibold text-primary"
+                  >
+                    Show all
+                  </button>
+                )}
+              </div>
+              {data.lockers
+                .filter((locker) =>
+                  statusFilter === null
+                    ? true
+                    : statusFilter === "DOWN"
+                      ? locker.status === "MAINTENANCE" || locker.status === "BREAKDOWN"
+                      : locker.status === statusFilter,
+                )
+                .map((locker) => (
+                  <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
+                ))}
               <p className="meta-text mt-1 px-0.5">
                 Fair allocation: first come, first served. Reservations that are not checked in
                 within {CHECK_IN_WINDOW_MINUTES} minutes are released back to the community.
