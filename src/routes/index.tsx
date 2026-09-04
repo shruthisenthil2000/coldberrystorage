@@ -792,6 +792,132 @@ function PickupContent({
   );
 }
 
+function ReportIssueContent({
+  data,
+  lockerId,
+  onClose,
+}: {
+  data: BoardData;
+  lockerId?: string;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [type, setType] = useState<IncidentType | null>(null);
+  const [picked, setPicked] = useState(lockerId ?? data.lockers[0]?.id ?? "");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+
+  const locker = data.lockers.find((l) => l.id === picked);
+  const option = INCIDENT_OPTIONS.find((o) => o.type === type);
+
+  async function submit() {
+    if (!type || !picked || saving) return;
+    setSaving(true);
+    try {
+      await reportIncident({ lockerId: picked, type, description });
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      setDone(locker?.locker_number ?? "");
+    } catch (e) {
+      toast.error(
+        `Could not report the issue. ${e instanceof Error ? e.message : "Please try again."}`,
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (done !== null) {
+    return (
+      <SheetContent side="bottom" className="rounded-t-2xl">
+        <SheetHeader>
+          <SheetTitle className="font-display text-2xl">✓ Issue reported</SheetTitle>
+          <SheetDescription>Locker {done} has been flagged.</SheetDescription>
+        </SheetHeader>
+        <div className="space-y-3 px-4 pb-6">
+          {option?.blocks && (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm font-semibold">
+              Locker {done} will not accept new reservations until the problem is fixed. Crates
+              already stored there stay where they are.
+            </p>
+          )}
+          <Button type="button" className="min-h-12 w-full text-base font-bold" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </SheetContent>
+    );
+  }
+
+  return (
+    <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl">
+      <SheetHeader>
+        <SheetTitle className="font-display text-2xl">⚠ Report issue</SheetTitle>
+        <SheetDescription>What happened?</SheetDescription>
+      </SheetHeader>
+      <div className="space-y-4 px-4 pb-6">
+        <div className="grid gap-2" role="group" aria-label="What happened?">
+          {INCIDENT_OPTIONS.map((o) => (
+            <button
+              key={o.type}
+              type="button"
+              aria-pressed={type === o.type}
+              onClick={() => setType(o.type)}
+              className={`panel min-h-12 px-3 text-left text-base font-bold ${
+                type === o.type ? "bg-primary text-primary-foreground ring-2 ring-primary" : ""
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+
+        <div>
+          <label className="stat-label" htmlFor="incident-locker">
+            Locker
+          </label>
+          <select
+            id="incident-locker"
+            className="panel mt-1 min-h-12 w-full px-3 text-base font-semibold"
+            value={picked}
+            onChange={(e) => setPicked(e.target.value)}
+          >
+            {data.lockers.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.locker_number} · {l.zone}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="stat-label" htmlFor="incident-note">
+            Description (optional)
+          </label>
+          <textarea
+            id="incident-note"
+            rows={2}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Short note"
+            className="panel mt-1 w-full px-3 py-2 text-base"
+          />
+        </div>
+
+        <Button
+          type="button"
+          disabled={!type || !picked || saving}
+          className="min-h-14 w-full text-base font-bold"
+          onClick={submit}
+        >
+          {saving ? "Reporting…" : "Report issue"}
+        </Button>
+      </div>
+    </SheetContent>
+  );
+}
+
+
 function LockerCard({
   locker,
   data,
