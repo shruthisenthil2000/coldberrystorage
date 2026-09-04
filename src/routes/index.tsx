@@ -19,6 +19,7 @@ import {
   CHECK_IN_WINDOW_MINUTES,
   statusTone,
   tempState,
+  expireOverdueReservations,
   tempTone,
   type BoardData,
   type HarvestSlot,
@@ -125,7 +126,9 @@ function ReserveSheet({
     if (!farmerId || crates <= 0 || crates > free) return;
     setSaving(true);
 
-    // Re-check live capacity: someone else may have taken the space meanwhile.
+    // Free any expired reservations first so capacity reflects reality,
+    // then re-check live capacity: someone else may have taken the space meanwhile.
+    await expireOverdueReservations();
     const [{ data: freshLocker }, { data: freshRes }] = await Promise.all([
       supabase.from("lockers").select("*").eq("id", locker.id).maybeSingle(),
       supabase.from("reservations").select("*").eq("locker_id", locker.id),
