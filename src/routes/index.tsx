@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Wifi, WifiOff } from "lucide-react";
+import { AlertTriangle, History, LayoutGrid, Moon, PackageCheck, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -40,6 +40,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { PhoneShell } from "@/components/PhoneShell";
+import { useTheme } from "@/lib/theme";
 import { useSyncExternalStore } from "react";
 
 export const Route = createFileRoute("/")({
