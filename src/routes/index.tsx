@@ -202,6 +202,7 @@ function ReserveSheet({
         farmer_id: farmerId,
         locker_id: locker.id,
         slot: pickedSlot,
+        harvest_date: format(harvestDate, "yyyy-MM-dd"),
         crate_count: crates,
         check_in_deadline: checkInDeadline(),
       })
@@ -284,7 +285,8 @@ function ReserveSheet({
           <SheetTitle className="text-xl font-semibold">✓ Locker reserved</SheetTitle>
           <SheetDescription>
             {locker.locker_number} · {SLOT_LABEL[done.slot as HarvestSlot] ?? done.slot} ·{" "}
-            {done.crate_count} crate{done.crate_count === 1 ? "" : "s"}
+            {done.crate_count} crate{done.crate_count === 1 ? "" : "s"} ·{" "}
+            {format(harvestDate, "EEE d MMM")}
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-4 px-4 pb-6">
