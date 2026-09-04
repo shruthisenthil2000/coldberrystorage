@@ -348,7 +348,7 @@ export function displayTone(status: DisplayStatus): string {
     case "RESERVED":
       return "tone-booked";
     case "CHECK_IN_REQUIRED":
-      return "tone-warn";
+      return "tone-down";
     case "IN_STORAGE":
       return "tone-stored";
     case "COMPLETED":
