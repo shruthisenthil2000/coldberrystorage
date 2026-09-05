@@ -1416,7 +1416,7 @@ function Board() {
   // What each locker looks like right now: derived from live reservations so a
   // no-show that just expired frees the locker without waiting for a refresh.
   const liveStatusOf = (l: Locker) =>
-    data ? effectiveLockerStatus(l, data.reservations, now) : l.status;
+    data ? effectiveLockerStatus(l, data.reservations, now, data.incidents) : l.status;
 
   // The moment any waiting reservation passes its deadline, tell the server to
   // release it and pull the authoritative state back.
