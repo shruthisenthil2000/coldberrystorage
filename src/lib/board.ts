@@ -110,7 +110,7 @@ export async function fetchBoard(): Promise<BoardData> {
   // falling back to the cached snapshot.
   if (isOffline() && !(await probeOnline())) {
     const cached = readCachedBoard();
-    if (cached) return cached;
+    if (cached) return withQueuedIncidents(cached);
     throw new Error("You're offline and no locker information has been saved yet.");
   }
 
