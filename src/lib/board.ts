@@ -162,6 +162,9 @@ export async function expireOverdueReservations(now: Date = new Date()): Promise
 export const boardQuery = {
   queryKey: ["board"] as const,
   queryFn: fetchBoard,
+  // Keep serving (and re-deriving) the cached board while offline instead of
+  // pausing, so a locally queued incident shows up straight away.
+  networkMode: "always" as const,
   // Re-check (and lazily expire) while the page stays open.
   refetchInterval: 30_000,
 };
