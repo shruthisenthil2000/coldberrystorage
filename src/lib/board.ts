@@ -546,10 +546,12 @@ export async function resolveIncident(
     : occupants.length > 0
       ? "RESERVED"
       : "AVAILABLE";
+  // A fixed cooling/temperature fault means the reading is back to target.
+  const coolingFixed = incident.type === "POWER" || incident.type === "TEMPERATURE";
 
   const { error: lockerError } = await supabase
     .from("lockers")
-    .update({ status: next })
+    .update(coolingFixed ? { status: next, temperature: 2.0 } : { status: next })
     .eq("id", locker.id);
   if (lockerError) throw lockerError;
 }
