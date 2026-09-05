@@ -106,12 +106,14 @@ export function isOffline(): boolean {
 
 
 export async function fetchBoard(): Promise<BoardData> {
-  // Offline: serve the last synced snapshot instead of failing the whole board.
-  if (isOffline()) {
+  // The browser flag can be wrong, so confirm with a real request before
+  // falling back to the cached snapshot.
+  if (isOffline() && !(await probeOnline())) {
     const cached = readCachedBoard();
     if (cached) return cached;
     throw new Error("You're offline and no locker information has been saved yet.");
   }
+
 
   try {
     // Lazy expiration: release RESERVED reservations whose 45-minute check-in
