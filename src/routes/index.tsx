@@ -1166,13 +1166,13 @@ function LockerCard({
   const nowTick = useNow();
   const used = usedCrates(locker.id, data.reservations, slot, nowTick);
   const storedAll = usedCrates(locker.id, data.reservations, undefined, nowTick);
-  const open = isReservable(locker, data.reservations, slot);
+  const open = isReservable(locker, data.reservations, slot, data.incidents);
   const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
   const online = useOnline();
   const [sheet, setSheet] = useState<"reserve" | "view" | "report" | null>(null);
 
-  const liveStatus = effectiveLockerStatus(locker, data.reservations, nowTick);
+  const liveStatus = effectiveLockerStatus(locker, data.reservations, nowTick, data.incidents);
 
   const down = liveStatus === "BREAKDOWN" || liveStatus === "MAINTENANCE";
 
