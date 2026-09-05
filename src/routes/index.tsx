@@ -1399,6 +1399,25 @@ function Board() {
   const cached = !online || data?.fromCache === true;
   const staleCache = cached && data ? isStale(data.syncedAt, new Date(now)) : false;
 
+  // What each locker looks like right now: derived from live reservations so a
+  // no-show that just expired frees the locker without waiting for a refresh.
+  const liveStatusOf = (l: Locker) =>
+    data ? effectiveLockerStatus(l, data.reservations, now) : l.status;
+
+  // The moment any waiting reservation passes its deadline, tell the server to
+  // release it and pull the authoritative state back.
+  const overdueIds = (data?.reservations ?? [])
+    .filter((r) => r.status === "RESERVED" && new Date(r.check_in_deadline).getTime() <= now)
+    .map((r) => r.id)
+    .join(",");
+  useEffect(() => {
+    if (!overdueIds || !online) return;
+    void expireOverdueReservations().then(() =>
+      queryClient.invalidateQueries({ queryKey: boardQuery.queryKey }),
+    );
+  }, [overdueIds, online, queryClient]);
+
+
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "short",
     month: "short",
