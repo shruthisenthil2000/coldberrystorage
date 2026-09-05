@@ -218,8 +218,12 @@ export function effectiveLockerStatus(
   locker: Locker,
   reservations: Reservation[],
   now: number = Date.now(),
+  incidents: Incident[] = [],
 ): LockerStatus {
   if (isOutOfService(locker)) return locker.status;
+  // An active blocking incident always wins, even if the stored column lags.
+  const blocking = activeBlockingIncident(locker, incidents);
+  if (blocking) return INCIDENT_OPTIONS.find((o) => o.type === blocking.type)!.blocks!;
   const mine = reservations.filter((r) => r.locker_id === locker.id && isOccupying(r, now));
   if (mine.some((r) => r.status === "CHECKED_IN" || r.status === "STORED")) return "IN_STORAGE";
   if (mine.length > 0) return "RESERVED";
@@ -231,8 +235,10 @@ export function isReservable(
   locker: Locker,
   reservations: Reservation[],
   slot?: HarvestSlot,
+  incidents: Incident[] = [],
 ): boolean {
   if (locker.status === "MAINTENANCE" || locker.status === "BREAKDOWN") return false;
+  if (activeBlockingIncident(locker, incidents)) return false;
   return freeCrates(locker, reservations, slot) > 0;
 }
 
