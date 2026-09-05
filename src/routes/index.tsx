@@ -1599,9 +1599,10 @@ function Board() {
                   statusFilter === null
                     ? true
                     : statusFilter === "DOWN"
-                      ? locker.status === "MAINTENANCE" || locker.status === "BREAKDOWN"
-                      : locker.status === statusFilter,
+                      ? liveStatusOf(locker) === "MAINTENANCE" || liveStatusOf(locker) === "BREAKDOWN"
+                      : liveStatusOf(locker) === statusFilter,
                 )
+
                 .map((locker) => (
                   <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
                 ))}
