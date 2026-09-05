@@ -1223,19 +1223,24 @@ function LockerCard({
 
       {down ? (
         <div className="mt-2.5 text-sm">
-          <p className="font-semibold">
+          <p className="flex items-center gap-2 font-semibold">
+            <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+            OUT OF SERVICE{storedAll > 0 ? " — OCCUPIED" : ""}
+          </p>
+          <p className="mt-1 font-semibold">
             {incidents[0] ? INCIDENT_LABEL[incidents[0].type] : "Locker unavailable"}
           </p>
           {incidents[0]?.description && (
             <p className="meta-text mt-0.5">{incidents[0].description}</p>
           )}
-          <p className="meta-text mt-0.5">
-            New reservations blocked
-            {used > 0
-              ? ` · ${used} crate${used === 1 ? "" : "s"} still stored here — crates may need attention`
-              : ""}
-            .
-          </p>
+          {storedAll > 0 ? (
+            <p className="mt-1.5 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[13px] font-medium">
+              ⚠ {storedAll} crate{storedAll === 1 ? "" : "s"} inside. Emergency issue reported —
+              the existing crate allocation is preserved. Staff attention required.
+            </p>
+          ) : (
+            <p className="meta-text mt-0.5">New reservations blocked · incident active.</p>
+          )}
         </div>
       ) : (
         <>
