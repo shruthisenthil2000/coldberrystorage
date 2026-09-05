@@ -38,6 +38,9 @@ import {
   QUEUE_EVENT,
   isStale,
   isOffline,
+  onlineSnapshot,
+  subscribeOnline,
+  probeOnline,
 
   lockerSizeLabel,
   ACTIVE_RESERVATION_STATUSES,
@@ -101,19 +104,9 @@ export const Route = createFileRoute("/")({
 });
 
 function useOnline(): boolean {
-  return useSyncExternalStore(
-    (cb) => {
-      window.addEventListener("online", cb);
-      window.addEventListener("offline", cb);
-      return () => {
-        window.removeEventListener("online", cb);
-        window.removeEventListener("offline", cb);
-      };
-    },
-    () => navigator.onLine,
-    () => true,
-  );
+  return useSyncExternalStore(subscribeOnline, onlineSnapshot, () => true);
 }
+
 
 function Chip({ tone, children }: { tone: string; children: React.ReactNode }) {
   return <span className={`status-chip ${tone}`}>{children}</span>;
@@ -176,7 +169,7 @@ function ReserveSheet({
   async function reserve() {
     if (!farmerId || crates <= 0 || saving) return;
     // Never confirm a booking the server hasn't accepted.
-    if (isOffline()) {
+    if (isOffline() && !(await probeOnline())) {
       toast.error("You're offline. New reservations need a connection to prevent double-booking.");
       return;
     }
@@ -975,7 +968,7 @@ function ReportIssueContent({
     if (!type || !picked || saving) return;
     setSaving(true);
     // Offline: keep the report locally and send it as soon as we reconnect.
-    if (!navigator.onLine) {
+    if (isOffline() && !(await probeOnline())) {
       queueIncident({ lockerId: picked, type, description });
       setSaving(false);
       setQueued(true);
@@ -1137,9 +1130,10 @@ function OfflineNotice({ onClose }: { onClose: () => void }) {
           disabled={retrying}
           onClick={async () => {
             setRetrying(true);
+            const reachable = await probeOnline();
             await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
             setRetrying(false);
-            if (online) {
+            if (reachable) {
               toast.success("Back online — locker information refreshed.");
               onClose();
             } else {
