@@ -263,17 +263,21 @@ function ReserveSheet({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
-          <SheetTitle className="text-xl font-semibold">Not enough capacity</SheetTitle>
+          <SheetTitle className="text-xl font-semibold">
+            {shortfall === 0 ? "No longer available" : "Not enough capacity"}
+          </SheetTitle>
           <SheetDescription>
             {shortfall === 0
-              ? `${locker.locker_number} is full right now.`
+              ? `${locker.locker_number} is full for this slot — the last crates were taken while you were booking.`
               : `Only ${shortfall} crate${shortfall === 1 ? "" : "s"} ${shortfall === 1 ? "is" : "are"} available in ${locker.locker_number}.`}
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-3 px-4 pb-6">
           <p className="rounded-lg bg-muted p-3 text-sm">
-            Someone else took the space while you were booking. Nothing was saved.
+            Nothing was saved and no crates were double-booked. Try another locker or the other
+            harvest slot.
           </p>
+
           {shortfall > 0 ? (
             <Button
               className="h-14 w-full text-base"
