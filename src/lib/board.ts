@@ -168,6 +168,18 @@ export const boardQuery = {
 
 
 /**
+ * True when a reservation still occupies crates *right now*. A RESERVED
+ * booking past its check-in deadline is a no-show: the server cancels it
+ * lazily, but the crates are treated as free immediately so the grid,
+ * capacity summary and badges never show a stale hold.
+ */
+export function isOccupying(r: Reservation, now: number = Date.now()): boolean {
+  if (!ACTIVE_RESERVATION_STATUSES.includes(r.status)) return false;
+  if (r.status === "RESERVED" && new Date(r.check_in_deadline).getTime() <= now) return false;
+  return true;
+}
+
+/**
  * Crates committed to a locker by reservations that still occupy space.
  * Capacity is tracked per harvest slot: a morning booking does not consume
  * afternoon space. Pass no slot to count every slot together.
@@ -176,12 +188,13 @@ export function usedCrates(
   lockerId: string,
   reservations: Reservation[],
   slot?: HarvestSlot,
+  now: number = Date.now(),
 ): number {
   return reservations
     .filter(
       (r) =>
         r.locker_id === lockerId &&
-        ACTIVE_RESERVATION_STATUSES.includes(r.status) &&
+        isOccupying(r, now) &&
         (slot === undefined || r.slot === slot),
     )
     .reduce((sum, r) => sum + r.crate_count, 0);
@@ -191,9 +204,28 @@ export function freeCrates(
   locker: Locker,
   reservations: Reservation[],
   slot?: HarvestSlot,
+  now: number = Date.now(),
 ): number {
-  return Math.max(0, locker.capacity - usedCrates(locker.id, reservations, slot));
+  return Math.max(0, locker.capacity - usedCrates(locker.id, reservations, slot, now));
 }
+
+/**
+ * What the locker looks like to a farmer right now. The stored column lags
+ * behind expiry (it is updated by a trigger when the no-show is cancelled),
+ * so the live grid derives the state from the reservations it can see.
+ */
+export function effectiveLockerStatus(
+  locker: Locker,
+  reservations: Reservation[],
+  now: number = Date.now(),
+): LockerStatus {
+  if (isOutOfService(locker)) return locker.status;
+  const mine = reservations.filter((r) => r.locker_id === locker.id && isOccupying(r, now));
+  if (mine.some((r) => r.status === "CHECKED_IN" || r.status === "STORED")) return "IN_STORAGE";
+  if (mine.length > 0) return "RESERVED";
+  return "AVAILABLE";
+}
+
 
 export function isReservable(
   locker: Locker,
