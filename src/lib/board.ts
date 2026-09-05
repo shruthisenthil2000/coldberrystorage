@@ -428,18 +428,20 @@ export type IncidentOption = {
 };
 
 export const INCIDENT_OPTIONS: IncidentOption[] = [
-  { type: "DOOR", label: "Door left open", blocks: "MAINTENANCE", tone: "caution" },
   { type: "POWER", label: "Cooling failure", blocks: "BREAKDOWN", tone: "critical" },
+  { type: "MECHANISM", label: "Door mechanism failure", blocks: "BREAKDOWN", tone: "critical" },
+  { type: "DOOR", label: "Door left open", blocks: "MAINTENANCE", tone: "caution" },
   { type: "TEMPERATURE", label: "Temperature too high", blocks: "BREAKDOWN", tone: "critical" },
-  { type: "SPOILAGE", label: "Locker damaged", blocks: "BREAKDOWN", tone: "critical" },
+  { type: "SPOILAGE", label: "Physical damage", blocks: "BREAKDOWN", tone: "critical" },
   { type: "OTHER", label: "Other", blocks: null, tone: "minor" },
 ];
 
 export const INCIDENT_LABEL: Record<IncidentType, string> = {
   DOOR: "Door left open",
+  MECHANISM: "Door mechanism failure",
   POWER: "Cooling failure",
   TEMPERATURE: "Temperature too high",
-  SPOILAGE: "Locker damaged",
+  SPOILAGE: "Physical damage",
   OTHER: "Other issue",
 };
 
