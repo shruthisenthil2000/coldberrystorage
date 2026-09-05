@@ -1484,15 +1484,16 @@ function Board() {
             <section className="mt-5 grid grid-cols-2 gap-3" aria-label="Locker summary">
               {(
                 [
-                  ["Available", "AVAILABLE", data.lockers.filter((l) => l.status === "AVAILABLE").length, "tone-free"],
-                  ["Booked", "RESERVED", data.lockers.filter((l) => l.status === "RESERVED").length, "tone-booked"],
-                  ["In storage", "IN_STORAGE", data.lockers.filter((l) => l.status === "IN_STORAGE").length, "tone-stored"],
+                  ["Available", "AVAILABLE", data.lockers.filter((l) => liveStatusOf(l) === "AVAILABLE").length, "tone-free"],
+                  ["Booked", "RESERVED", data.lockers.filter((l) => liveStatusOf(l) === "RESERVED").length, "tone-booked"],
+                  ["In storage", "IN_STORAGE", data.lockers.filter((l) => liveStatusOf(l) === "IN_STORAGE").length, "tone-stored"],
                   [
                     "Out of service",
                     "DOWN",
                     data.lockers.filter(
-                      (l) => l.status === "MAINTENANCE" || l.status === "BREAKDOWN",
+                      (l) => liveStatusOf(l) === "MAINTENANCE" || liveStatusOf(l) === "BREAKDOWN",
                     ).length,
+
                     "tone-down",
                   ],
                 ] as const
