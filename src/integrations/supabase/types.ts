@@ -196,7 +196,13 @@ export type Database = {
     }
     Enums: {
       incident_status: "OPEN" | "INVESTIGATING" | "RESOLVED"
-      incident_type: "TEMPERATURE" | "POWER" | "DOOR" | "SPOILAGE" | "OTHER"
+      incident_type:
+        | "TEMPERATURE"
+        | "POWER"
+        | "DOOR"
+        | "SPOILAGE"
+        | "OTHER"
+        | "MECHANISM"
       locker_status:
         | "AVAILABLE"
         | "RESERVED"
@@ -337,7 +343,14 @@ export const Constants = {
   public: {
     Enums: {
       incident_status: ["OPEN", "INVESTIGATING", "RESOLVED"],
-      incident_type: ["TEMPERATURE", "POWER", "DOOR", "SPOILAGE", "OTHER"],
+      incident_type: [
+        "TEMPERATURE",
+        "POWER",
+        "DOOR",
+        "SPOILAGE",
+        "OTHER",
+        "MECHANISM",
+      ],
       locker_status: [
         "AVAILABLE",
         "RESERVED",

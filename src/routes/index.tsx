@@ -56,6 +56,10 @@ import {
   type HarvestSlot,
   type Locker,
   type Reservation,
+  type Incident,
+  activeBlockingIncident,
+  lockerOccupants,
+  resolveIncident,
 } from "@/lib/board";
 import {
   Sheet,
@@ -975,6 +979,8 @@ function ReportIssueContent({
     // Offline: keep the report locally and send it as soon as we reconnect.
     if (isOffline() && !(await probeOnline())) {
       queueIncident({ lockerId: picked, type, description });
+      // Reflect the local out-of-service state straight away, even offline.
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
       setSaving(false);
       setQueued(true);
       setDone(locker?.locker_number ?? "");
@@ -1166,13 +1172,13 @@ function LockerCard({
   const nowTick = useNow();
   const used = usedCrates(locker.id, data.reservations, slot, nowTick);
   const storedAll = usedCrates(locker.id, data.reservations, undefined, nowTick);
-  const open = isReservable(locker, data.reservations, slot);
+  const open = isReservable(locker, data.reservations, slot, data.incidents);
   const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
   const online = useOnline();
   const [sheet, setSheet] = useState<"reserve" | "view" | "report" | null>(null);
 
-  const liveStatus = effectiveLockerStatus(locker, data.reservations, nowTick);
+  const liveStatus = effectiveLockerStatus(locker, data.reservations, nowTick, data.incidents);
 
   const down = liveStatus === "BREAKDOWN" || liveStatus === "MAINTENANCE";
 
@@ -1223,19 +1229,24 @@ function LockerCard({
 
       {down ? (
         <div className="mt-2.5 text-sm">
-          <p className="font-semibold">
+          <p className="flex items-center gap-2 font-semibold">
+            <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+            OUT OF SERVICE{storedAll > 0 ? " — OCCUPIED" : ""}
+          </p>
+          <p className="mt-1 font-semibold">
             {incidents[0] ? INCIDENT_LABEL[incidents[0].type] : "Locker unavailable"}
           </p>
           {incidents[0]?.description && (
             <p className="meta-text mt-0.5">{incidents[0].description}</p>
           )}
-          <p className="meta-text mt-0.5">
-            New reservations blocked
-            {used > 0
-              ? ` · ${used} crate${used === 1 ? "" : "s"} still stored here — crates may need attention`
-              : ""}
-            .
-          </p>
+          {storedAll > 0 ? (
+            <p className="mt-1.5 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[13px] font-medium">
+              ⚠ {storedAll} crate{storedAll === 1 ? "" : "s"} inside. Emergency issue reported —
+              the existing crate allocation is preserved. Staff attention required.
+            </p>
+          ) : (
+            <p className="meta-text mt-0.5">New reservations blocked · incident active.</p>
+          )}
         </div>
       ) : (
         <>
@@ -1266,7 +1277,7 @@ function LockerCard({
 
       <div className="mt-3 grid gap-2" onClick={(e) => e.stopPropagation()}>
         {down ? (
-          used > 0 ? (
+          storedAll > 0 ? (
             <Button
               variant="secondary"
               className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
@@ -1407,7 +1418,7 @@ function Board() {
   // What each locker looks like right now: derived from live reservations so a
   // no-show that just expired frees the locker without waiting for a refresh.
   const liveStatusOf = (l: Locker) =>
-    data ? effectiveLockerStatus(l, data.reservations, now) : l.status;
+    data ? effectiveLockerStatus(l, data.reservations, now, data.incidents) : l.status;
 
   // The moment any waiting reservation passes its deadline, tell the server to
   // release it and pull the authoritative state back.
@@ -1503,6 +1514,7 @@ function Board() {
 
         {data && tab === "home" && (
           <>
+            <EmergencyBanner data={data} onOpenIncidents={() => setTab("activity")} />
             <LastReservationCard data={data} />
 
             <section className="mt-5 grid grid-cols-2 gap-3" aria-label="Locker summary">
@@ -2033,10 +2045,195 @@ function BookingsTab({ data }: { data: BoardData }) {
   );
 }
 
+/**
+ * Emergency alert shown in the app itself (no SMS/email is sent). Highlights
+ * lockers that are out of service, and warns loudly when crates are inside.
+ */
+function EmergencyBanner({
+  data,
+  onOpenIncidents,
+}: {
+  data: BoardData;
+  onOpenIncidents: () => void;
+}) {
+  const now = useNow(5000);
+  const broken = data.lockers
+    .map((l) => ({
+      locker: l,
+      incident: activeBlockingIncident(l, data.incidents),
+      occupants: lockerOccupants(l.id, data.reservations, now),
+    }))
+    .filter((x) => x.incident || isOutOfService(x.locker));
+  if (broken.length === 0) return null;
+
+  return (
+    <section
+      className="panel mb-4 border-destructive/50 p-3.5 pl-4 edge-down"
+      aria-label="Emergency locker alerts"
+    >
+      <p className="flex items-center gap-2 text-[15px] font-semibold">
+        <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
+        {broken.length} locker{broken.length === 1 ? "" : "s"} out of service
+      </p>
+      <ul className="mt-2 grid gap-2">
+        {broken.map(({ locker, incident, occupants }) => {
+          const crates = occupants.reduce((s, r) => s + r.crate_count, 0);
+          return (
+            <li key={locker.id} className="text-sm">
+              <span className="font-semibold">{locker.locker_number}</span>
+              {" · "}
+              {incident ? INCIDENT_LABEL[incident.type] : "Unavailable"}
+              {crates > 0 && (
+                <span className="meta-text mt-0.5 block">
+                  ⚠ Contains {crates} crate{crates === 1 ? "" : "s"} — allocation preserved, staff
+                  attention required
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="meta-text mt-2">
+        Shown here only — no text message or email is sent to farmers.
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        className="pressable mt-3 h-11 w-full rounded-xl text-sm font-semibold"
+        onClick={onOpenIncidents}
+      >
+        View incidents
+      </Button>
+    </section>
+  );
+}
+
+/** Incident list with the staff resolution flow. */
+function IncidentsPanel({ data }: { data: BoardData }) {
+  const queryClient = useQueryClient();
+  const now = useNow(5000);
+  const [confirming, setConfirming] = useState<Incident | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const sorted = [...data.incidents].sort((a, b) => {
+    const activeA = a.status !== "RESOLVED" ? 0 : 1;
+    const activeB = b.status !== "RESOLVED" ? 0 : 1;
+    if (activeA !== activeB) return activeA - activeB;
+    return new Date(b.reported_at).getTime() - new Date(a.reported_at).getTime();
+  });
+
+  async function resolve(incident: Incident) {
+    const locker = data.lockers.find((l) => l.id === incident.locker_id);
+    if (!locker || busy) return;
+    if (isOffline() && !(await probeOnline())) {
+      toast.error("You're offline. Resolving an incident needs a connection.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await resolveIncident(incident, locker, data.reservations, data.incidents);
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
+      setConfirming(null);
+      toast.success(`${locker.locker_number} inspected — incident resolved`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not resolve the incident.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (sorted.length === 0) return null;
+
+  return (
+    <section className="mb-5" aria-label="Incidents">
+      <h2 className="section-heading">Incidents</h2>
+      <ul className="mt-3 grid gap-2">
+        {sorted.slice(0, 12).map((incident) => {
+          const locker = data.lockers.find((l) => l.id === incident.locker_id);
+          const active = incident.status !== "RESOLVED";
+          const occupants = locker ? lockerOccupants(locker.id, data.reservations, now) : [];
+          const crates = occupants.reduce((s, r) => s + r.crate_count, 0);
+          const queued = incident.id.startsWith("queued-");
+          return (
+            <li
+              key={incident.id}
+              className={`panel p-3.5 pl-4 ${active ? "edge-down" : "edge-free"}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[15px] font-semibold">{locker?.locker_number ?? "Locker"}</p>
+                  <p className="meta-text">{INCIDENT_LABEL[incident.type]}</p>
+                </div>
+                <Chip tone={active ? "tone-down" : "tone-free"}>
+                  {active ? (crates > 0 ? "OUT OF SERVICE — OCCUPIED" : "ACTIVE") : "RESOLVED"}
+                </Chip>
+              </div>
+              {crates > 0 && active && (
+                <p className="mt-1.5 text-sm font-medium">
+                  ⚠ {crates} crate{crates === 1 ? "" : "s"} inside · allocation preserved
+                </p>
+              )}
+              {incident.description && (
+                <p className="meta-text mt-1">{incident.description}</p>
+              )}
+              <p className="meta-text mt-1 tabular-nums">
+                Reported {shortTime(incident.reported_at)}
+                {queued ? " · saved on this phone, waiting to sync" : ""}
+              </p>
+              {active && !queued && (
+                confirming?.id === incident.id ? (
+                  <div className="mt-3 grid gap-2">
+                    <p className="text-sm font-semibold">
+                      Has this locker been inspected and fixed?
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="pressable h-11 rounded-xl text-sm font-semibold"
+                        onClick={() => setConfirming(null)}
+                      >
+                        Not yet
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={busy}
+                        className="pressable h-11 rounded-xl text-sm font-semibold"
+                        onClick={() => resolve(incident)}
+                      >
+                        {busy ? "Saving…" : "Yes, fixed"}
+                      </Button>
+                    </div>
+                    {crates > 0 && (
+                      <p className="meta-text">
+                        The locker stays occupied until the crates are picked up.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="pressable mt-3 h-11 w-full rounded-xl text-sm font-semibold"
+                    onClick={() => setConfirming(incident)}
+                  >
+                    Mark resolved
+                  </Button>
+                )
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 function ActivityTab({ data }: { data: BoardData }) {
   const events = buildActivity(data).slice(0, 40);
   return (
     <>
+      <IncidentsPanel data={data} />
       <h2 className="section-heading">Recent activity</h2>
       {events.length === 0 && (
         <p className="panel-flat mt-3 p-4 text-sm text-muted-foreground">Nothing has happened yet.</p>

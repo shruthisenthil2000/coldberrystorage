@@ -110,7 +110,7 @@ export async function fetchBoard(): Promise<BoardData> {
   // falling back to the cached snapshot.
   if (isOffline() && !(await probeOnline())) {
     const cached = readCachedBoard();
-    if (cached) return cached;
+    if (cached) return withQueuedIncidents(cached);
     throw new Error("You're offline and no locker information has been saved yet.");
   }
 
@@ -140,11 +140,11 @@ export async function fetchBoard(): Promise<BoardData> {
       fromCache: false,
     };
     writeCachedBoard(fresh);
-    return fresh;
+    return withQueuedIncidents(fresh);
   } catch (err) {
     // Flaky network: fall back to the cached snapshot, clearly marked as stale.
     const cached = readCachedBoard();
-    if (cached) return cached;
+    if (cached) return withQueuedIncidents(cached);
     throw err;
   }
 }
@@ -162,6 +162,9 @@ export async function expireOverdueReservations(now: Date = new Date()): Promise
 export const boardQuery = {
   queryKey: ["board"] as const,
   queryFn: fetchBoard,
+  // Keep serving (and re-deriving) the cached board while offline instead of
+  // pausing, so a locally queued incident shows up straight away.
+  networkMode: "always" as const,
   // Re-check (and lazily expire) while the page stays open.
   refetchInterval: 30_000,
 };
@@ -218,8 +221,12 @@ export function effectiveLockerStatus(
   locker: Locker,
   reservations: Reservation[],
   now: number = Date.now(),
+  incidents: Incident[] = [],
 ): LockerStatus {
   if (isOutOfService(locker)) return locker.status;
+  // An active blocking incident always wins, even if the stored column lags.
+  const blocking = activeBlockingIncident(locker, incidents);
+  if (blocking) return INCIDENT_OPTIONS.find((o) => o.type === blocking.type)!.blocks!;
   const mine = reservations.filter((r) => r.locker_id === locker.id && isOccupying(r, now));
   if (mine.some((r) => r.status === "CHECKED_IN" || r.status === "STORED")) return "IN_STORAGE";
   if (mine.length > 0) return "RESERVED";
@@ -231,8 +238,10 @@ export function isReservable(
   locker: Locker,
   reservations: Reservation[],
   slot?: HarvestSlot,
+  incidents: Incident[] = [],
 ): boolean {
   if (locker.status === "MAINTENANCE" || locker.status === "BREAKDOWN") return false;
+  if (activeBlockingIncident(locker, incidents)) return false;
   return freeCrates(locker, reservations, slot) > 0;
 }
 
@@ -428,18 +437,20 @@ export type IncidentOption = {
 };
 
 export const INCIDENT_OPTIONS: IncidentOption[] = [
-  { type: "DOOR", label: "Door left open", blocks: "MAINTENANCE", tone: "caution" },
   { type: "POWER", label: "Cooling failure", blocks: "BREAKDOWN", tone: "critical" },
+  { type: "MECHANISM", label: "Door mechanism failure", blocks: "BREAKDOWN", tone: "critical" },
+  { type: "DOOR", label: "Door left open", blocks: "MAINTENANCE", tone: "caution" },
   { type: "TEMPERATURE", label: "Temperature too high", blocks: "BREAKDOWN", tone: "critical" },
-  { type: "SPOILAGE", label: "Locker damaged", blocks: "BREAKDOWN", tone: "critical" },
+  { type: "SPOILAGE", label: "Physical damage", blocks: "BREAKDOWN", tone: "critical" },
   { type: "OTHER", label: "Other", blocks: null, tone: "minor" },
 ];
 
 export const INCIDENT_LABEL: Record<IncidentType, string> = {
   DOOR: "Door left open",
+  MECHANISM: "Door mechanism failure",
   POWER: "Cooling failure",
   TEMPERATURE: "Temperature too high",
-  SPOILAGE: "Locker damaged",
+  SPOILAGE: "Physical damage",
   OTHER: "Other issue",
 };
 
@@ -479,6 +490,99 @@ export async function reportIncident(input: {
   }
 
   return data;
+}
+
+/** The active (unresolved) incident that is keeping a locker out of service. */
+export function activeBlockingIncident(
+  locker: Locker,
+  incidents: Incident[],
+): Incident | undefined {
+  return openIncidents(locker.id, incidents).find(
+    (i) => INCIDENT_OPTIONS.find((o) => o.type === i.type)?.blocks != null,
+  );
+}
+
+/** Reservations that still hold crates inside a locker (any harvest slot). */
+export function lockerOccupants(
+  lockerId: string,
+  reservations: Reservation[],
+  now: number = Date.now(),
+): Reservation[] {
+  return reservations.filter((r) => r.locker_id === lockerId && isOccupying(r, now));
+}
+
+/**
+ * Staff confirm the locker has been inspected and fixed. The incident is
+ * closed and the locker returns to the state its reservations imply — an
+ * occupied locker stays occupied instead of jumping back into the pool.
+ */
+export async function resolveIncident(
+  incident: Incident,
+  locker: Locker,
+  reservations: Reservation[],
+  incidents: Incident[],
+): Promise<void> {
+  const { error } = await supabase
+    .from("incidents")
+    .update({ status: "RESOLVED" })
+    .eq("id", incident.id);
+  if (error) throw error;
+
+  // Another unresolved blocking incident? The locker must stay out of service.
+  const stillBlocked = incidents.some(
+    (i) =>
+      i.id !== incident.id &&
+      i.locker_id === locker.id &&
+      i.status !== "RESOLVED" &&
+      INCIDENT_OPTIONS.find((o) => o.type === i.type)?.blocks != null,
+  );
+  if (stillBlocked) return;
+
+  const occupants = lockerOccupants(locker.id, reservations);
+  const next: LockerStatus = occupants.some(
+    (r) => r.status === "CHECKED_IN" || r.status === "STORED",
+  )
+    ? "IN_STORAGE"
+    : occupants.length > 0
+      ? "RESERVED"
+      : "AVAILABLE";
+  // A fixed cooling/temperature fault means the reading is back to target.
+  const coolingFixed = incident.type === "POWER" || incident.type === "TEMPERATURE";
+
+  const { error: lockerError } = await supabase
+    .from("lockers")
+    .update(coolingFixed ? { status: next, temperature: 2.0 } : { status: next })
+    .eq("id", locker.id);
+  if (lockerError) throw lockerError;
+}
+
+/**
+ * Overlay incidents that are still waiting in the offline queue, so a locker
+ * reported broken never flips back to "Available" just because the server has
+ * not heard about it yet.
+ */
+export function withQueuedIncidents(data: BoardData): BoardData {
+  const queue = readIncidentQueue();
+  if (queue.length === 0) return data;
+  const lockers = data.lockers.map((l) => {
+    const blocking = queue.find(
+      (q) => q.lockerId === l.id && INCIDENT_OPTIONS.find((o) => o.type === q.type)?.blocks != null,
+    );
+    if (!blocking || isOutOfService(l)) return l;
+    return {
+      ...l,
+      status: INCIDENT_OPTIONS.find((o) => o.type === blocking.type)!.blocks as LockerStatus,
+    };
+  });
+  const pending: Incident[] = queue.map((q) => ({
+    id: `queued-${q.id}`,
+    locker_id: q.lockerId,
+    type: q.type,
+    description: q.description || INCIDENT_LABEL[q.type],
+    reported_at: q.queuedAt,
+    status: "OPEN",
+  }));
+  return { ...data, lockers, incidents: [...pending, ...data.incidents] };
 }
 
 /* ------------------------------------------------- reservation presentation */
