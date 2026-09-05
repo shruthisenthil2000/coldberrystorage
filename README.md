@@ -203,8 +203,7 @@ cancelled reservations.
 
 ## 13. Live demo
 
-- Live demo: https://coldberrystorage.lovable.app/
-- GitHub: https://github.com/shruthisenthil2000/coldberrystorage
+- Preview: _deployment URL to be added after publishing_
 
 ## 14. Tech stack
 
