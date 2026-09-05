@@ -31,5 +31,7 @@ dist-ssr
 *.sln
 *.sw?
 
-# Environment variables
-.env
+# Environment variables (.env is managed by Lovable Cloud and must stay tracked
+# so the production build receives VITE_SUPABASE_* variables)
+.env.local
+.env.*.local
