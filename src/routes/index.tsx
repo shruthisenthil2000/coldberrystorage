@@ -1191,7 +1191,7 @@ function LockerCard({
             }
           : undefined
       }
-      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(locker.status).replace("tone-", "edge-")} ${open ? "cursor-pointer" : ""}`}
+      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(liveStatus).replace("tone-", "edge-")} ${open ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -1210,7 +1210,7 @@ function LockerCard({
             </p>
           </div>
         </div>
-        <Chip tone={statusTone(locker.status)}>
+        <Chip tone={statusTone(liveStatus)}>
           {availabilityLabel(locker, data.reservations, slot)}
         </Chip>
 
