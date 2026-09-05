@@ -1271,7 +1271,7 @@ function LockerCard({
 
       <div className="mt-3 grid gap-2" onClick={(e) => e.stopPropagation()}>
         {down ? (
-          used > 0 ? (
+          storedAll > 0 ? (
             <Button
               variant="secondary"
               className="pressable h-12 w-full rounded-xl text-[15px] font-semibold"
