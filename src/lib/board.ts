@@ -48,9 +48,62 @@ function writeCachedBoard(data: BoardData): void {
   }
 }
 
-export function isOffline(): boolean {
-  return typeof navigator !== "undefined" && navigator.onLine === false;
+/**
+ * Some browsers (and embedded previews) report `navigator.onLine === false`
+ * even when the network works. A successful probe overrides that flag until
+ * the browser fires a real "offline" event.
+ */
+let confirmedOnline = false;
+const onlineListeners = new Set<() => void>();
+
+function notifyOnline(): void {
+  for (const cb of onlineListeners) cb();
 }
+
+export function onlineSnapshot(): boolean {
+  if (confirmedOnline) return true;
+  return typeof navigator === "undefined" ? true : navigator.onLine;
+}
+
+export function subscribeOnline(cb: () => void): () => void {
+  onlineListeners.add(cb);
+  const onOffline = () => {
+    confirmedOnline = false;
+    cb();
+  };
+  const onOnline = () => cb();
+  window.addEventListener("offline", onOffline);
+  window.addEventListener("online", onOnline);
+  return () => {
+    onlineListeners.delete(cb);
+    window.removeEventListener("offline", onOffline);
+    window.removeEventListener("online", onOnline);
+  };
+}
+
+/** Real round-trip check — the authority on whether we can reach the network. */
+export async function probeOnline(timeoutMs = 5000): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    await fetch(`/favicon.ico?ping=${Date.now()}`, {
+      method: "HEAD",
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    confirmedOnline = true;
+  } catch {
+    confirmedOnline = false;
+  }
+  notifyOnline();
+  return confirmedOnline;
+}
+
+export function isOffline(): boolean {
+  return !onlineSnapshot();
+}
+
 
 export async function fetchBoard(): Promise<BoardData> {
   // Offline: serve the last synced snapshot instead of failing the whole board.
