@@ -1512,6 +1512,7 @@ function Board() {
 
         {data && tab === "home" && (
           <>
+            <EmergencyBanner data={data} onOpenIncidents={() => setTab("activity")} />
             <LastReservationCard data={data} />
 
             <section className="mt-5 grid grid-cols-2 gap-3" aria-label="Locker summary">
