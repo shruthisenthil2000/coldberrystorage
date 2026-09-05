@@ -483,6 +483,97 @@ export async function reportIncident(input: {
   return data;
 }
 
+/** The active (unresolved) incident that is keeping a locker out of service. */
+export function activeBlockingIncident(
+  locker: Locker,
+  incidents: Incident[],
+): Incident | undefined {
+  return openIncidents(locker.id, incidents).find(
+    (i) => INCIDENT_OPTIONS.find((o) => o.type === i.type)?.blocks != null,
+  );
+}
+
+/** Reservations that still hold crates inside a locker (any harvest slot). */
+export function lockerOccupants(
+  lockerId: string,
+  reservations: Reservation[],
+  now: number = Date.now(),
+): Reservation[] {
+  return reservations.filter((r) => r.locker_id === lockerId && isOccupying(r, now));
+}
+
+/**
+ * Staff confirm the locker has been inspected and fixed. The incident is
+ * closed and the locker returns to the state its reservations imply — an
+ * occupied locker stays occupied instead of jumping back into the pool.
+ */
+export async function resolveIncident(
+  incident: Incident,
+  locker: Locker,
+  reservations: Reservation[],
+  incidents: Incident[],
+): Promise<void> {
+  const { error } = await supabase
+    .from("incidents")
+    .update({ status: "RESOLVED" })
+    .eq("id", incident.id);
+  if (error) throw error;
+
+  // Another unresolved blocking incident? The locker must stay out of service.
+  const stillBlocked = incidents.some(
+    (i) =>
+      i.id !== incident.id &&
+      i.locker_id === locker.id &&
+      i.status !== "RESOLVED" &&
+      INCIDENT_OPTIONS.find((o) => o.type === i.type)?.blocks != null,
+  );
+  if (stillBlocked) return;
+
+  const occupants = lockerOccupants(locker.id, reservations);
+  const next: LockerStatus = occupants.some(
+    (r) => r.status === "CHECKED_IN" || r.status === "STORED",
+  )
+    ? "IN_STORAGE"
+    : occupants.length > 0
+      ? "RESERVED"
+      : "AVAILABLE";
+
+  const { error: lockerError } = await supabase
+    .from("lockers")
+    .update({ status: next })
+    .eq("id", locker.id);
+  if (lockerError) throw lockerError;
+}
+
+/**
+ * Overlay incidents that are still waiting in the offline queue, so a locker
+ * reported broken never flips back to "Available" just because the server has
+ * not heard about it yet.
+ */
+export function withQueuedIncidents(data: BoardData): BoardData {
+  const queue = readIncidentQueue();
+  if (queue.length === 0) return data;
+  const lockers = data.lockers.map((l) => {
+    const blocking = queue.find(
+      (q) => q.lockerId === l.id && INCIDENT_OPTIONS.find((o) => o.type === q.type)?.blocks != null,
+    );
+    if (!blocking || isOutOfService(l)) return l;
+    return {
+      ...l,
+      status: INCIDENT_OPTIONS.find((o) => o.type === blocking.type)!.blocks as LockerStatus,
+    };
+  });
+  const pending: Incident[] = queue.map((q) => ({
+    id: `queued-${q.id}`,
+    locker_id: q.lockerId,
+    type: q.type,
+    description: q.description || INCIDENT_LABEL[q.type],
+    reported_at: q.queuedAt,
+    status: "OPEN",
+  }));
+  return { ...data, lockers, incidents: [...pending, ...data.incidents] };
+}
+
 /* ------------------------------------------------- reservation presentation */
 
 export type DisplayStatus =
