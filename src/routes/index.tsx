@@ -13,6 +13,7 @@ import {
   agoLabel,
   moveReservation,
   usedCrates,
+  effectiveLockerStatus,
 
   LOCKER_LABEL,
   SLOT_LABEL,
