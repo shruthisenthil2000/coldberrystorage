@@ -13,6 +13,7 @@ import {
   agoLabel,
   moveReservation,
   usedCrates,
+  effectiveLockerStatus,
 
   LOCKER_LABEL,
   SLOT_LABEL,
@@ -262,17 +263,21 @@ function ReserveSheet({
     return (
       <SheetContent side="bottom" className="rounded-t-2xl">
         <SheetHeader>
-          <SheetTitle className="text-xl font-semibold">Not enough capacity</SheetTitle>
+          <SheetTitle className="text-xl font-semibold">
+            {shortfall === 0 ? "No longer available" : "Not enough capacity"}
+          </SheetTitle>
           <SheetDescription>
             {shortfall === 0
-              ? `${locker.locker_number} is full right now.`
+              ? `${locker.locker_number} is full for this slot — the last crates were taken while you were booking.`
               : `Only ${shortfall} crate${shortfall === 1 ? "" : "s"} ${shortfall === 1 ? "is" : "are"} available in ${locker.locker_number}.`}
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-3 px-4 pb-6">
           <p className="rounded-lg bg-muted p-3 text-sm">
-            Someone else took the space while you were booking. Nothing was saved.
+            Nothing was saved and no crates were double-booked. Try another locker or the other
+            harvest slot.
           </p>
+
           {shortfall > 0 ? (
             <Button
               className="h-14 w-full text-base"
@@ -1157,17 +1162,20 @@ function LockerCard({
   data: BoardData;
   slot: HarvestSlot;
 }) {
-  // Capacity is tracked per harvest slot.
-  const used = usedCrates(locker.id, data.reservations, slot);
-  const storedAll = usedCrates(locker.id, data.reservations);
+  // Capacity is tracked per harvest slot; expired no-shows never count.
+  const nowTick = useNow();
+  const used = usedCrates(locker.id, data.reservations, slot, nowTick);
+  const storedAll = usedCrates(locker.id, data.reservations, undefined, nowTick);
   const open = isReservable(locker, data.reservations, slot);
   const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
   const online = useOnline();
   const [sheet, setSheet] = useState<"reserve" | "view" | "report" | null>(null);
 
+  const liveStatus = effectiveLockerStatus(locker, data.reservations, nowTick);
 
-  const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
+  const down = liveStatus === "BREAKDOWN" || liveStatus === "MAINTENANCE";
+
 
 
   const free = Math.max(0, locker.capacity - used);
@@ -1188,7 +1196,7 @@ function LockerCard({
             }
           : undefined
       }
-      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(locker.status).replace("tone-", "edge-")} ${open ? "cursor-pointer" : ""}`}
+      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(liveStatus).replace("tone-", "edge-")} ${open ? "cursor-pointer" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -1207,7 +1215,7 @@ function LockerCard({
             </p>
           </div>
         </div>
-        <Chip tone={statusTone(locker.status)}>
+        <Chip tone={statusTone(liveStatus)}>
           {availabilityLabel(locker, data.reservations, slot)}
         </Chip>
 
@@ -1396,6 +1404,25 @@ function Board() {
   const cached = !online || data?.fromCache === true;
   const staleCache = cached && data ? isStale(data.syncedAt, new Date(now)) : false;
 
+  // What each locker looks like right now: derived from live reservations so a
+  // no-show that just expired frees the locker without waiting for a refresh.
+  const liveStatusOf = (l: Locker) =>
+    data ? effectiveLockerStatus(l, data.reservations, now) : l.status;
+
+  // The moment any waiting reservation passes its deadline, tell the server to
+  // release it and pull the authoritative state back.
+  const overdueIds = (data?.reservations ?? [])
+    .filter((r) => r.status === "RESERVED" && new Date(r.check_in_deadline).getTime() <= now)
+    .map((r) => r.id)
+    .join(",");
+  useEffect(() => {
+    if (!overdueIds || !online) return;
+    void expireOverdueReservations().then(() =>
+      queryClient.invalidateQueries({ queryKey: boardQuery.queryKey }),
+    );
+  }, [overdueIds, online, queryClient]);
+
+
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "short",
     month: "short",
@@ -1481,15 +1508,16 @@ function Board() {
             <section className="mt-5 grid grid-cols-2 gap-3" aria-label="Locker summary">
               {(
                 [
-                  ["Available", "AVAILABLE", data.lockers.filter((l) => l.status === "AVAILABLE").length, "tone-free"],
-                  ["Booked", "RESERVED", data.lockers.filter((l) => l.status === "RESERVED").length, "tone-booked"],
-                  ["In storage", "IN_STORAGE", data.lockers.filter((l) => l.status === "IN_STORAGE").length, "tone-stored"],
+                  ["Available", "AVAILABLE", data.lockers.filter((l) => liveStatusOf(l) === "AVAILABLE").length, "tone-free"],
+                  ["Booked", "RESERVED", data.lockers.filter((l) => liveStatusOf(l) === "RESERVED").length, "tone-booked"],
+                  ["In storage", "IN_STORAGE", data.lockers.filter((l) => liveStatusOf(l) === "IN_STORAGE").length, "tone-stored"],
                   [
                     "Out of service",
                     "DOWN",
                     data.lockers.filter(
-                      (l) => l.status === "MAINTENANCE" || l.status === "BREAKDOWN",
+                      (l) => liveStatusOf(l) === "MAINTENANCE" || liveStatusOf(l) === "BREAKDOWN",
                     ).length,
+
                     "tone-down",
                   ],
                 ] as const
@@ -1595,9 +1623,10 @@ function Board() {
                   statusFilter === null
                     ? true
                     : statusFilter === "DOWN"
-                      ? locker.status === "MAINTENANCE" || locker.status === "BREAKDOWN"
-                      : locker.status === statusFilter,
+                      ? liveStatusOf(locker) === "MAINTENANCE" || liveStatusOf(locker) === "BREAKDOWN"
+                      : liveStatusOf(locker) === statusFilter,
                 )
+
                 .map((locker) => (
                   <LockerCard key={locker.id} locker={locker} data={data} slot={slot} />
                 ))}
