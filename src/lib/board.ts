@@ -140,11 +140,11 @@ export async function fetchBoard(): Promise<BoardData> {
       fromCache: false,
     };
     writeCachedBoard(fresh);
-    return fresh;
+    return withQueuedIncidents(fresh);
   } catch (err) {
     // Flaky network: fall back to the cached snapshot, clearly marked as stale.
     const cached = readCachedBoard();
-    if (cached) return cached;
+    if (cached) return withQueuedIncidents(cached);
     throw err;
   }
 }
