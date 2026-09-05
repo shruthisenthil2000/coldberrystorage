@@ -101,19 +101,9 @@ export const Route = createFileRoute("/")({
 });
 
 function useOnline(): boolean {
-  return useSyncExternalStore(
-    (cb) => {
-      window.addEventListener("online", cb);
-      window.addEventListener("offline", cb);
-      return () => {
-        window.removeEventListener("online", cb);
-        window.removeEventListener("offline", cb);
-      };
-    },
-    () => navigator.onLine,
-    () => true,
-  );
+  return useSyncExternalStore(subscribeOnline, onlineSnapshot, () => true);
 }
+
 
 function Chip({ tone, children }: { tone: string; children: React.ReactNode }) {
   return <span className={`status-chip ${tone}`}>{children}</span>;
