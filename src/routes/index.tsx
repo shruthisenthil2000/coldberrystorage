@@ -1157,17 +1157,20 @@ function LockerCard({
   data: BoardData;
   slot: HarvestSlot;
 }) {
-  // Capacity is tracked per harvest slot.
-  const used = usedCrates(locker.id, data.reservations, slot);
-  const storedAll = usedCrates(locker.id, data.reservations);
+  // Capacity is tracked per harvest slot; expired no-shows never count.
+  const nowTick = useNow();
+  const used = usedCrates(locker.id, data.reservations, slot, nowTick);
+  const storedAll = usedCrates(locker.id, data.reservations, undefined, nowTick);
   const open = isReservable(locker, data.reservations, slot);
   const incidents = openIncidents(locker.id, data.incidents);
   const tState = tempState(Number(locker.temperature));
   const online = useOnline();
   const [sheet, setSheet] = useState<"reserve" | "view" | "report" | null>(null);
 
+  const liveStatus = effectiveLockerStatus(locker, data.reservations, nowTick);
 
-  const down = locker.status === "BREAKDOWN" || locker.status === "MAINTENANCE";
+  const down = liveStatus === "BREAKDOWN" || liveStatus === "MAINTENANCE";
+
 
 
   const free = Math.max(0, locker.capacity - used);
