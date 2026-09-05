@@ -979,6 +979,8 @@ function ReportIssueContent({
     // Offline: keep the report locally and send it as soon as we reconnect.
     if (isOffline() && !(await probeOnline())) {
       queueIncident({ lockerId: picked, type, description });
+      // Reflect the local out-of-service state straight away, even offline.
+      await queryClient.invalidateQueries({ queryKey: boardQuery.queryKey });
       setSaving(false);
       setQueued(true);
       setDone(locker?.locker_number ?? "");
