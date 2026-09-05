@@ -193,6 +193,22 @@ export type Database = {
             Args: { _exclude?: string; _locker_id: string; _slot?: string }
             Returns: number
           }
+      mark_locker_out_of_service: {
+        Args: {
+          _locker_id: string
+          _status: Database["public"]["Enums"]["locker_status"]
+        }
+        Returns: undefined
+      }
+      resolve_incident: { Args: { _incident_id: string }; Returns: undefined }
+      restore_locker: {
+        Args: {
+          _cooling_fixed: boolean
+          _locker_id: string
+          _status: Database["public"]["Enums"]["locker_status"]
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       incident_status: "OPEN" | "INVESTIGATING" | "RESOLVED"
