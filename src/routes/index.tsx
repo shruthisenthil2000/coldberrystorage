@@ -2231,6 +2231,7 @@ function ActivityTab({ data }: { data: BoardData }) {
   const events = buildActivity(data).slice(0, 40);
   return (
     <>
+      <IncidentsPanel data={data} />
       <h2 className="section-heading">Recent activity</h2>
       {events.length === 0 && (
         <p className="panel-flat mt-3 p-4 text-sm text-muted-foreground">Nothing has happened yet.</p>
