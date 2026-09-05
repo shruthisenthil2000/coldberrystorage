@@ -84,13 +84,41 @@ usage, and raises `CAPACITY:<n>` if the request would exceed it. Two
 simultaneous bookings therefore serialise: the second one sees the first and
 is either trimmed or rejected, and the UI offers "Reserve the remaining N".
 
-## 8. Incident handling
+## 8. Incident handling and emergency locker breakdown
 
-Quick incident types (door open, cooling failure, temperature high, damage,
-other) with an optional note. Critical types mark the locker out of service, so
-new reservations are blocked with the reason shown on the card. Existing
-reservations are **never** deleted — they stay visible with a warning so the
-farmer can retrieve or re-book crates.
+Quick incident types (cooling failure, door mechanism failure, door left open,
+temperature high, physical damage, other) with an optional note — three taps
+from the board. Critical types mark the locker **OUT OF SERVICE** immediately:
+it is removed from the reservable pool and from the free-capacity numbers, the
+reserve action disappears, and the server re-checks locker status inside the
+insert path so a stale screen cannot slip a booking through.
+
+Emergency locker breakdowns immediately remove the affected locker from the
+reservable pool and create a visible active incident. If a locker already
+contains a crate, the existing reservation and crate allocation are preserved
+rather than silently deleted. The locker reads **OUT OF SERVICE — OCCUPIED**,
+an emergency banner appears at the top of Home, and the Incidents list shows the
+locker, issue type, crates inside, reported time and status. The system surfaces
+the issue to staff through the browser interface.
+
+We deliberately did not implement SMS/WhatsApp notifications because the
+challenge prohibits paid messaging APIs. As a result, the prototype does not
+proactively contact the farmer whose crate is inside a failed locker. This is a
+deliberate scope decision: the system prioritizes preserving state, preventing
+further bookings, and making the incident visible without pretending that an
+external notification was delivered.
+
+**Recovery loop.** Once staff confirms the locker has been fixed ("Mark
+resolved" → "Has this locker been inspected and fixed?"), the incident can be
+marked resolved. The locker returns to its appropriate previous operational
+state rather than automatically becoming available — available → available,
+reserved → reserved, occupied → occupied until pickup. This prevents an occupied
+locker from incorrectly entering the booking pool.
+
+Offline, an incident is stored on the phone, the locker turns out of service in
+the local view straight away, and the report syncs automatically on reconnect;
+the cached view never flips back to "Available" while a report is queued.
+
 
 ## 9. Fair allocation
 
