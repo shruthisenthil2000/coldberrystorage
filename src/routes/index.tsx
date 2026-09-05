@@ -56,6 +56,10 @@ import {
   type HarvestSlot,
   type Locker,
   type Reservation,
+  type Incident,
+  activeBlockingIncident,
+  lockerOccupants,
+  resolveIncident,
 } from "@/lib/board";
 import {
   Sheet,
