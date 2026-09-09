@@ -332,8 +332,7 @@ function ReserveSheet({
             </p>
           </div>
 
-        </SheetHeader>
-        <div className="space-y-4 px-4 pb-6">
+
           <Countdown deadline={done.check_in_deadline} />
           <div className="grid grid-cols-2 gap-2">
             <div className="panel p-3">
