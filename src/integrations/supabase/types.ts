@@ -78,7 +78,9 @@ export type Database = {
           capacity: number
           created_at: string
           id: string
+          location: string
           locker_number: string
+          price_per_crate: number
           status: Database["public"]["Enums"]["locker_status"]
           temperature: number
           zone: string
@@ -87,7 +89,9 @@ export type Database = {
           capacity: number
           created_at?: string
           id?: string
+          location?: string
           locker_number: string
+          price_per_crate?: number
           status?: Database["public"]["Enums"]["locker_status"]
           temperature?: number
           zone: string
@@ -96,7 +100,9 @@ export type Database = {
           capacity?: number
           created_at?: string
           id?: string
+          location?: string
           locker_number?: string
+          price_per_crate?: number
           status?: Database["public"]["Enums"]["locker_status"]
           temperature?: number
           zone?: string

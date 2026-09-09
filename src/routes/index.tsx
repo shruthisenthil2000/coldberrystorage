@@ -44,6 +44,10 @@ import {
   probeOnline,
 
   lockerSizeLabel,
+  priceLabel,
+  totalPrice,
+  rupees,
+
   ACTIVE_RESERVATION_STATUSES,
   buildActivity,
   displayStatus,
@@ -318,6 +322,17 @@ function ReserveSheet({
           </SheetDescription>
         </SheetHeader>
         <div className="space-y-4 px-4 pb-6">
+          <div className="panel space-y-1 p-3">
+            <p className="stat-label">Location</p>
+            <p className="text-[15px] font-medium">{locker.location}</p>
+            <p className="stat-label pt-1">Storage price</p>
+            <p className="text-[15px] font-semibold">
+              {rupees(totalPrice(locker, done.crate_count))}{" "}
+              <span className="font-normal text-muted-foreground">({priceLabel(locker)})</span>
+            </p>
+          </div>
+
+
           <Countdown deadline={done.check_in_deadline} />
           <div className="grid grid-cols-2 gap-2">
             <div className="panel p-3">
@@ -364,6 +379,13 @@ function ReserveSheet({
       </SheetHeader>
 
       <div className="max-h-[70vh] space-y-5 overflow-y-auto px-4 pt-2 pb-6">
+        <div className="panel space-y-1 p-3">
+          <p className="stat-label">Location</p>
+          <p className="text-[15px] font-medium">{locker.location}</p>
+          <p className="stat-label pt-1">Price</p>
+          <p className="text-[15px] font-semibold">{priceLabel(locker)}</p>
+        </div>
+
         <div>
           <p className="stat-label mb-2">Your farm</p>
           <div className="grid max-h-44 gap-2.5 overflow-y-auto pr-1">
@@ -450,7 +472,12 @@ function ReserveSheet({
               {free} crate{free === 1 ? "" : "s"} available
             </span>
           </div>
+          <p className="mt-2.5 text-[15px] font-semibold">
+            Total {rupees(totalPrice(locker, crates))}{" "}
+            <span className="font-normal text-muted-foreground">({priceLabel(locker)})</span>
+          </p>
         </div>
+
 
         <Button
           type="button"
@@ -1219,7 +1246,10 @@ function LockerCard({
             <p className="meta-text mt-0.5 truncate">
               {locker.zone} · {lockerSizeLabel(locker.capacity)}
             </p>
+            <p className="meta-text mt-0.5 truncate">📍 {locker.location}</p>
+            <p className="mt-0.5 truncate text-[13px] font-semibold">{priceLabel(locker)}</p>
           </div>
+
         </div>
         <Chip tone={statusTone(liveStatus)}>
           {availabilityLabel(locker, data.reservations, slot)}
