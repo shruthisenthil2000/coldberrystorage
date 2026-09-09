@@ -159,13 +159,18 @@
 @layer base {
   * {
     border-color: var(--color-border);
+    box-sizing: border-box;
   }
 
   html {
     background-color: var(--color-background);
+    max-width: 100%;
+    overflow-x: clip;
   }
 
   body {
+    max-width: 100%;
+    overflow-x: clip;
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
@@ -326,12 +331,17 @@
 
 @layer components {
   .phone-stage {
+    width: 100%;
+    max-width: 100%;
     min-height: 100dvh;
+    overflow-x: clip;
   }
   .phone-frame {
     display: flex;
     flex-direction: column;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     height: 100dvh;
     overflow: hidden;
     background-color: var(--background);

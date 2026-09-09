@@ -1229,9 +1229,9 @@ function LockerCard({
             }
           : undefined
       }
-      className={`panel flex flex-col p-3.5 pl-4.5 ${statusTone(liveStatus).replace("tone-", "edge-")} ${open ? "cursor-pointer" : ""}`}
+      className={`panel flex w-full min-w-0 max-w-full flex-col overflow-hidden p-3.5 pl-4.5 ${statusTone(liveStatus).replace("tone-", "edge-")} ${open ? "cursor-pointer" : ""}`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <img
             src={lockerSampleImg}
@@ -1246,8 +1246,8 @@ function LockerCard({
             <p className="meta-text mt-0.5 truncate">
               {locker.zone} · {lockerSizeLabel(locker.capacity)}
             </p>
-            <p className="meta-text mt-0.5 truncate">📍 {locker.location}</p>
-            <p className="mt-0.5 truncate text-[13px] font-semibold">{priceLabel(locker)}</p>
+            <p className="meta-text mt-0.5 break-words">📍 {locker.location}</p>
+            <p className="mt-0.5 break-words text-[13px] font-semibold">{priceLabel(locker)}</p>
           </div>
 
         </div>
@@ -1280,12 +1280,12 @@ function LockerCard({
         </div>
       ) : (
         <>
-          <div className="mt-2.5 flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-sm font-medium">
+          <div className="mt-2.5 grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-3">
+            <span className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
               {Number(locker.temperature).toFixed(1)} °C
               <Chip tone={tempTone(tState)}>{TEMP_LABEL[tState]}</Chip>
             </span>
-            <span className="text-sm font-semibold tabular-nums">
+            <span className="min-w-0 text-right text-sm font-semibold tabular-nums">
               {free}/{locker.capacity}
               <span className="text-muted-foreground">
                 {" "}
@@ -1494,7 +1494,7 @@ function Board() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
+      <div className="min-w-0 flex-1 overflow-x-clip overflow-y-auto px-4 pt-4 pb-6">
         {data && (
           cached ? (
             <div className="panel-flat mb-4 flex items-center justify-between gap-3 p-3">
@@ -1641,8 +1641,8 @@ function Board() {
               );
             })()}
 
-            <section className="mt-5 grid gap-3">
-              <div className="flex items-center justify-between gap-3">
+            <section className="mt-5 grid min-w-0 gap-3">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
                 <h2 className="section-heading">
                   {statusFilter === null
                     ? "Locker availability"

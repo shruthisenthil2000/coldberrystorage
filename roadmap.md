@@ -1,5 +1,6 @@
 # Roadmap
 
+- [ ] Remove mobile horizontal overflow across Home, locker cards, Bookings, Activity, Report, navigation, and reservation sheets; verify at 320/360/375/390/414px
 - [x] Phase 10 — final QA audit (tests 1,4,5,6,9 verified end-to-end; 2,3,7,8,10 from earlier phases re-checked)
 - [ ] UI redesign — polished native mobile app experience
   - [ ] Inter typography + type scale
