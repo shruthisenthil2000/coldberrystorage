@@ -765,6 +765,28 @@ export function lockerSizeLabel(capacity: number): string {
   return `${lockerSize(capacity)} · ${capacity} crates`;
 }
 
+/* ------------------------------------------------------------ price & place */
+
+/** Rate charged per crate for one harvest slot, in rupees. */
+export function cratePrice(locker: Pick<Locker, "price_per_crate">): number {
+  return Number(locker.price_per_crate ?? 0);
+}
+
+/** "₹20 / crate · slot" — the rate shown on cards and in the booking flow. */
+export function priceLabel(locker: Pick<Locker, "price_per_crate">): string {
+  return `₹${cratePrice(locker)} / crate · slot`;
+}
+
+/** Total storage price for a booking of N crates in one slot. */
+export function totalPrice(locker: Pick<Locker, "price_per_crate">, crates: number): number {
+  return cratePrice(locker) * Math.max(0, crates);
+}
+
+export function rupees(amount: number): string {
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
+
 /* ------------------------------------------------------------ offline cache */
 
 /** Cached availability older than this is shown as stale, not live. */
