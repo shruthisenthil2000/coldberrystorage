@@ -1242,8 +1242,8 @@ function LockerCard({
             className="h-12 w-12 shrink-0 rounded-xl border border-border object-cover"
           />
           <div className="min-w-0">
-            <h3 className="card-title truncate">{locker.locker_number}</h3>
-            <p className="meta-text mt-0.5 truncate">
+            <h3 className="card-title break-words">{locker.locker_number}</h3>
+            <p className="meta-text mt-0.5 break-words">
               {locker.zone} · {lockerSizeLabel(locker.capacity)}
             </p>
             <p className="meta-text mt-0.5 break-words">📍 {locker.location}</p>
@@ -1251,9 +1251,11 @@ function LockerCard({
           </div>
 
         </div>
-        <Chip tone={statusTone(liveStatus)}>
-          {availabilityLabel(locker, data.reservations, slot)}
-        </Chip>
+        <span className="max-[359px]:col-span-2 max-[359px]:justify-self-start">
+          <Chip tone={statusTone(liveStatus)}>
+            {availabilityLabel(locker, data.reservations, slot)}
+          </Chip>
+        </span>
 
       </div>
 
@@ -1783,7 +1785,7 @@ function BookingCard({
         compact ? "border-primary/60" : ""
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <div className="min-w-0">
           {compact && (
             <p className="stat-label">
@@ -1791,14 +1793,16 @@ function BookingCard({
               reservation
             </p>
           )}
-          <h3 className="card-title truncate">🫐 {locker?.locker_number ?? "—"}</h3>
-          <p className="meta-text truncate">
+          <h3 className="card-title break-words">🫐 {locker?.locker_number ?? "—"}</h3>
+          <p className="meta-text break-words">
             {reservation.crate_count} crate{reservation.crate_count === 1 ? "" : "s"} ·{" "}
             {SLOT_LABEL[reservation.slot as HarvestSlot] ?? reservation.slot}
             {farmer ? ` · ${farmer.farm_name}` : ""}
           </p>
         </div>
-        <Chip tone={displayTone(status)}>{DISPLAY_STATUS_LABEL[status]}</Chip>
+        <span className="max-[359px]:col-span-2 max-[359px]:justify-self-start">
+          <Chip tone={displayTone(status)}>{DISPLAY_STATUS_LABEL[status]}</Chip>
+        </span>
       </div>
 
       {reservation.status === "RESERVED" && remaining && (
